@@ -1,0 +1,25 @@
+<!-- exchange/templates/exchange/transaction_confirm_delete.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h3>Confirmar Eliminación de Transacción</h3>
+                </div>
+                <div class="card-body">
+                    <p>¿Estás seguro de que quieres eliminar la transacción <strong>#{{ transaction.id }}</strong> del cliente "<strong>{{ transaction.client.name }}</strong>"?</p>
+                    <p class="text-danger"><strong>¡Atención!</strong> Esta acción es irreversible.</p>
+                    <form method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger">Sí, estoy seguro. Eliminar.</button>
+                        <a href="{% url 'client-detail' transaction.client.pk %}" class="btn btn-secondary">Cancelar</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

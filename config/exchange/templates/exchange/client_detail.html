@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1>{{ client.name }}</h1>
+        <a href="{% url 'client-list' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Volver a la lista
+        </a>
+    </div>
+
+    <!-- Balance Actual (ahora funcionará con la nueva lógica) -->
+    <div class="row mb-4">
+        <div class="col-md-6 mb-3 mb-md-0">
+            <div class="card {% if balance.debe_usd > 0 or balance.debe_bs > 0 %}border-danger text-danger{% endif %}">
+                <div class="card-header fw-bold {% if balance.debe_usd > 0 or balance.debe_bs > 0 %}bg-danger text-white{% endif %}">
+                    Deuda del Cliente con Nosotros
+                </div>
+                <div class="card-body">
+                    <h5 class="card-title fw-bold">${{ balance.debe_usd|floatformat:2 }}</h5>
+                    <h5 class="card-title fw-bold">{{ balance.debe_bs|floatformat:2 }} Bs.</h5>
+                    {% if balance.debe_usd == 0 and balance.debe_bs == 0 %}
+                        <p class="text-success mb-0"><i class="fas fa-check-circle"></i> Solvente</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card {% if balance.le_debemos_usd > 0 or balance.le_debemos_bs > 0 %}border-success text-success{% endif %}">
+                <div class="card-header fw-bold {% if balance.le_debemos_usd > 0 or balance.le_debemos_bs > 0 %}bg-success text-white{% endif %}">
+                    Nuestra Deuda con el Cliente
+                </div>
+                <div class="card-body">
+                    <h5 class="card-title fw-bold">${{ balance.le_debemos_usd|floatformat:2 }}</h5>
+                    <h5 class="card-title fw-bold">{{ balance.le_debemos_bs|floatformat:2 }} Bs.</h5>
+                     {% if balance.le_debemos_usd == 0 and balance.le_debemos_bs == 0 %}
+                        <p class="text-muted mb-0"><i class="fas fa-check-circle"></i> No hay entregas pendientes.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Historial de Transacciones (con las columnas corregidas) -->
+    <div class="card mt-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Historial de Transacciones</h5>
+            <a href="{% url 'transaction-create' client.pk %}" class="btn btn-sm btn-primary">
+                <i class="fas fa-plus"></i> Nueva Transacción
+            </a>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th scope="col">Fecha</th>
+                            <th scope="col">Operación</th>
+                            <th scope="col">Monto (USD)</th>
+                            <th scope="col">Tasa</th>
+                            <th scope="col">Monto (BS)</th>
+                            <th scope="col">Estado</th>
+                            <th scope="col">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for tx in client.transactions.all %}
+                        <tr>
+                            <td>{{ tx.transaction_date|date:"d/m/Y H:i" }}</td>
+                            <td>{{ tx.get_operation_type_display }}</td>
+                            <td>${{ tx.amount_usd|floatformat:2 }}</td>
+                            <td>{{ tx.exchange_rate|floatformat:2 }}</td>
+                            <td>{{ tx.amount_bs|floatformat:2 }} Bs.</td>
+                            <td>
+                                {% if tx.status == 'pending_payment' %}
+                                    <span class="badge bg-danger">{{ tx.get_status_display }}</span>
+                                {% elif tx.status == 'pending_delivery' %}
+                                    <span class="badge bg-warning text-dark">{{ tx.get_status_display }}</span>
+                                {% elif tx.status == 'completed' %}
+                                    <span class="badge bg-success">{{ tx.get_status_display }}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ tx.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                            
+                            <td>
+                                <a href="{% url 'transaction-update' tx.pk %}" class="btn btn-sm btn-outline-primary">Editar</a>
+                                <!-- BOTÓN AÑADIDO -->
+                                <a href="{% url 'transaction-delete' tx.pk %}" class="btn btn-sm btn-outline-danger">Eliminar</a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-4">Este cliente no tiene transacciones registradas.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

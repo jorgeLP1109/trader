@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3>{{ page_title }}</h3>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        {{ form|crispy }}
+
+                        <!-- Contenedor para mostrar el total calculado -->
+                        <div class="alert alert-info mt-3" role="alert">
+                            <strong>Monto Total en Bolívares: </strong>
+                            <span id="total_bs_display" class="fw-bold">0.00 Bs.</span>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-save"></i> Guardar Transacción
+                            </button>
+                            <a href="{{ cancel_url }}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Cancelar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+<script>
+function calculateTotal() {
+    // Obtener los valores de los campos
+    const amountUsd = parseFloat(document.getElementById('id_amount_usd').value) || 0;
+    const exchangeRate = parseFloat(document.getElementById('id_exchange_rate').value) || 0;
+    
+    // Calcular el total
+    const totalBs = amountUsd * exchangeRate;
+    
+    // Mostrar el total formateado en el contenedor
+    const totalDisplay = document.getElementById('total_bs_display');
+    totalDisplay.textContent = totalBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' Bs.';
+}
+
+// Ejecutar el cálculo una vez al cargar la página por si hay valores existentes (en modo edición)
+document.addEventListener('DOMContentLoaded', calculateTotal);
+</script>
+{% endblock %}

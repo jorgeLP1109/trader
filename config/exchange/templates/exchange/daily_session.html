@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Gestión de Caja Diaria</h1>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    {% if active_session %}
+        <!-- VISTA DE CAJA ABIERTA -->
+        <div class="card border-success">
+            <div class="card-header bg-success text-white">
+                <h3>Caja Abierta (Jornada del {{ active_session.date|date:"d/m/Y" }})</h3>
+            </div>
+            <div class="card-body">
+                <p>La caja fue abierta por <strong>{{ active_session.opened_by.username }}</strong> a las {{ active_session.opened_at|date:"H:i" }}.</p>
+                <h4>Saldos Actuales en Caja:</h4>
+                <p class="fs-4"><strong>USD:</strong> ${{ cash_on_hand.total_usd|floatformat:2 }}</p>
+                <p class="fs-4"><strong>BS:</strong> {{ cash_on_hand.total_bs|floatformat:2 }} Bs.</p>
+                <hr>
+                <form action="{% url 'close-session' %}" method="post" onsubmit="return confirm('¿Estás seguro de que quieres cerrar la caja? Esta acción no se puede deshacer.');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger btn-lg">Cerrar Caja</button>
+                </form>
+            </div>
+        </div>
+
+    {% else %}
+        <!-- VISTA DE CAJA CERRADA -->
+        <div class="card border-primary">
+            <div class="card-header bg-primary text-white">
+                <h3>Abrir Caja para la Jornada de Hoy ({{ "now"|date:"d/m/Y" }})</h3>
+            </div>
+            <div class="card-body">
+                {% if session_today_exists %}
+                    <div class="alert alert-warning">La caja para la fecha de hoy ya fue operada y cerrada. No se puede volver a abrir.</div>
+                {% else %}
+                    <form action="{% url 'open-session' %}" method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="opening_balance_usd" class="form-label">Saldo Inicial en Dólares (USD)</label>
+                            <input type="number" step="0.01" name="opening_balance_usd" class="form-control" required placeholder="Ingrese el saldo inicial en USD" title="Saldo Inicial en Dólares (USD)">
+                        </div>
+                        <div class="mb-3">
+                            <label for="opening_balance_bs" class="form-label">Saldo Inicial en Bolívares (BS)</label>
+                            <input type="number" step="0.01" name="opening_balance_bs" class="form-control" required placeholder="Ingrese el saldo inicial en BS" title="Saldo Inicial en Bolívares (BS)">
+                        </div>
+                        <button type="submit" class="btn btn-success btn-lg">Abrir Caja</button>
+                    </form>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+    
+    <div class="mt-4">
+        <a href="#" class="btn btn-info">Ver Reportes de Caja (Próximamente)</a>
+    </div>
+</div>
+{% endblock %}
