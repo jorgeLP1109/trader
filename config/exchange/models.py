@@ -230,14 +230,21 @@ class VaultSession(models.Model):
     opening_balance_zelle = models.DecimalField(max_digits=12, decimal_places=2)
     
     closing_balance_usd = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    # ... añadir campos de closing_balance para bs, usdt, zelle
+    closing_balance_bs = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    closing_balance_usdt = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    closing_balance_zelle = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     
-    opened_by = models.ForeignKey(User, related_name='sessions_opened_%(class)s', on_delete=models.SET_NULL, null=True)
+    # ... (totalizadores de IN/OUT se quedan igual si los tienes) ...
+    
+    opened_by = models.ForeignKey(User, related_name='sessions_opened_vault', on_delete=models.SET_NULL, null=True)
+    # --- CAMPO AÑADIDO / CORREGIDO ---
+    closed_by = models.ForeignKey(User, related_name='sessions_closed_vault', on_delete=models.SET_NULL, null=True, blank=True)
+    
     opened_at = models.DateTimeField(auto_now_add=True)
     closed_at = models.DateTimeField(null=True, blank=True)
     
     class Meta:
-        unique_together = ('vault', 'date') # Solo una sesión por bóveda por día
+        unique_together = ('vault', 'date')
         ordering = ['-date']
 
     def __str__(self):

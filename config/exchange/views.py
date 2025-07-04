@@ -19,6 +19,9 @@ from django.core.exceptions import PermissionDenied
 from django.utils.decorators import method_decorator
 from .decorators import admin_required
 from decimal import Decimal 
+from django.core.paginator import Paginator
+import csv
+from django.http import HttpResponse
 
 # ==============================================================================
 # MIXINS DE AUTORIZACIÓN
@@ -198,17 +201,30 @@ class ClientCreateView(LoginRequiredMixin, CreateView):
     fields = ['name', 'identifier', 'phone', 'email']
     template_name = 'exchange/client_form.html'
     success_url = reverse_lazy('client-list')
+    
+    def form_valid(self, form):
+        messages.success(self.request, f"Cliente '{form.instance.name}' creado exitosamente.")
+        return super().form_valid(form)
 
 class ClientUpdateView(LoginRequiredMixin, UpdateView):
     model = Client
     fields = ['name', 'identifier', 'phone', 'email']
     template_name = 'exchange/client_form.html'
     success_url = reverse_lazy('client-list')
+    
+    def form_valid(self, form):
+        messages.success(self.request, f"Cliente '{form.instance.name}' actualizado exitosamente.")
+        return super().form_valid(form)
 
 class ClientDeleteView(LoginRequiredMixin, DeleteView):
     model = Client
     template_name = 'exchange/client_confirm_delete.html'
     success_url = reverse_lazy('client-list')
+    
+    def form_valid(self, form):
+        client_name = self.object.name
+        messages.success(self.request, f"Cliente '{client_name}' eliminado exitosamente.")
+        return super().form_valid(form)
 
 
 # ==============================================================================
@@ -278,27 +294,53 @@ class TransactionDeleteView(LoginRequiredMixin, AdminVerifiedMixin, DeleteView):
 # VISTAS DE API PARA GRÁFICOS (VERSIÓN ACTUALIZADA)
 # ==============================================================================
 
+# exchange/views.py
+
+# ... (mantén todos tus otros imports al principio del archivo) ...
+# Asegúrate de que estos imports específicos estén presentes:
+from django.http import JsonResponse
+from django.db.models import Count, Sum, Q
+from django.db.models.functions import TruncMonth
+from django.contrib.auth.decorators import login_required
+from .models import AdvancedTransaction
+
+# ... (mantén todas tus otras vistas: DashboardView, ClientListView, etc.) ...
+
+
+# ==============================================================================
+# VISTAS DE API PARA GRÁFICOS (VERSIÓN FINAL Y COMPLETA)
+# ==============================================================================
+
+@login_required
 def exchange_volume_chart_data(request):
-    """ API que devuelve el número de transacciones completadas por mes. """
+    """
+    API que devuelve el número de transacciones completadas por mes.
+    """
+    # Filtramos por status completado para obtener métricas reales
     data = AdvancedTransaction.objects.filter(status='completed') \
         .annotate(month=TruncMonth('created_at')) \
         .values('month') \
         .annotate(count=Count('id')) \
         .order_by('month')
     
+    # Formateamos los datos para que Chart.js los entienda
     labels = [d['month'].strftime('%B %Y') for d in data]
     values = [d['count'] for d in data]
     
     return JsonResponse({'labels': labels, 'data': values})
 
 
+@login_required
 def operation_composition_chart_data(request):
-    """ API que devuelve la composición de tipos de operación. """
+    """
+    API que devuelve la composición de tipos de operación completadas.
+    """
     data = AdvancedTransaction.objects.filter(status='completed') \
         .values('operation_type') \
         .annotate(count=Count('id')) \
         .order_by('operation_type')
 
+    # Mapeamos los nombres técnicos a nombres legibles para el gráfico
     operation_names = dict(AdvancedTransaction.OPERATION_CHOICES)
     labels = [operation_names.get(d['operation_type'], d['operation_type']) for d in data]
     values = [d['count'] for d in data]
@@ -306,16 +348,19 @@ def operation_composition_chart_data(request):
     return JsonResponse({'labels': labels, 'data': values})
 
 
+@login_required
 def monthly_flow_chart_data(request):
-    """ API que devuelve el flujo total de USD (efectivo) y USDT movidos por mes. """
+    """
+    API que devuelve el flujo total de USD (efectivo) y USDT movidos por mes.
+    """
     data = AdvancedTransaction.objects.filter(status='completed') \
         .annotate(month=TruncMonth('created_at')) \
         .values('month') \
         .annotate(
-            # Suma de USD en operaciones de compra/venta de efectivo
-            total_usd_cash=Sum('amount_in', filter=Q(operation_type__in=['BUY_USD_FOR_BS', 'SELL_USD_FOR_BS', 'CASH_FOR_USDT'])),
-            # Suma de USDT en operaciones que involucran USDT
-            total_usdt=Sum('amount_in', filter=Q(operation_type__in=['USDT_FOR_CASH', 'USDT_FOR_BS', 'CASH_FOR_USDT']))
+            # Suma de USD en operaciones que involucran efectivo o Zelle como entrada
+            total_usd_cash=Sum('amount_in', filter=Q(operation_type__in=['BUY_USD_FOR_BS', 'SELL_USD_FOR_BS', 'CASH_FOR_USDT', 'ZELLE_FOR_CASH'])),
+            # Suma de USDT en operaciones que lo involucran como entrada
+            total_usdt=Sum('amount_in', filter=Q(operation_type__in=['USDT_FOR_CASH', 'USDT_FOR_BS']))
         ).order_by('month')
 
     labels = [d['month'].strftime('%B %Y') for d in data]
@@ -425,21 +470,20 @@ def close_session(request):
 
 
 class DailySessionReportView(LoginRequiredMixin, AdminRequiredMixin, ListView):
-    # Apuntamos al nuevo modelo VaultSession
     model = VaultSession
     template_name = 'exchange/daily_session_report.html'
     context_object_name = 'sessions'
-    # Mostramos solo las sesiones cerradas, ordenadas por fecha
-    queryset = VaultSession.objects.filter(status='closed').order_by('-date')
-    paginate_by = 15
+    # La paginación necesita un ordenamiento definido para ser consistente
+    queryset = VaultSession.objects.filter(status='closed').order_by('-date') 
+    paginate_by = 15 # Puedes ajustar este número
 
 
 
 class GeneralReportView(LoginRequiredMixin, AdminRequiredMixin, View):
-    template_name = 'exchange/general_report_advanced.html' # Usaremos una nueva plantilla para el reporte avanzado
+    template_name = 'exchange/general_report_advanced.html'
     
     def get(self, request, *args, **kwargs):
-        # --- 1. MANEJO DE FILTROS (Fechas y Tipo de Operación) ---
+        # --- 1. PROCESAR FILTROS ---
         today = timezone.localdate()
         start_date_str = request.GET.get('start_date', today.replace(day=1).strftime('%Y-%m-%d'))
         end_date_str = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
@@ -448,25 +492,22 @@ class GeneralReportView(LoginRequiredMixin, AdminRequiredMixin, View):
         start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
         end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
         
-        # --- 2. CONSTRUCCIÓN DEL QUERYSET BASE ---
+        # --- 2. QUERYSET BASE Y FILTROS ---
         transactions_qs = AdvancedTransaction.objects.filter(
             status='completed',
-            created_at__gte=start_date,
-            created_at__lt=end_date + timedelta(days=1)
-        )
-        
+            created_at__date__gte=start_date,
+            created_at__date__lte=end_date
+        ).select_related('client') # Optimización
+
         if operation_filter:
             transactions_qs = transactions_qs.filter(operation_type=operation_filter)
 
-        # --- 3. CÁLCULOS AGREGADOS EFICIENTES ---
-        
-        # Resumen general con una sola consulta
+        # --- 3. CÁLCULOS AGREGADOS ---
         general_summary = transactions_qs.aggregate(
             total_transactions=Count('id'),
             total_profit=Sum('profit')
         )
         
-        # Desglose por tipo de operación con una sola consulta
         summary_by_type = list(transactions_qs
             .values('operation_type')
             .annotate(
@@ -478,34 +519,39 @@ class GeneralReportView(LoginRequiredMixin, AdminRequiredMixin, View):
             .order_by('operation_type')
         )
 
-        # Mapear los nombres de operación para la plantilla
         operation_names = dict(AdvancedTransaction.OPERATION_CHOICES)
         for summary in summary_by_type:
             summary['display_name'] = operation_names.get(summary['operation_type'])
 
-        # --- 4. PREPARACIÓN DEL CONTEXTO PARA LA PLANTILLA ---
+        # --- 4. PAGINACIÓN ---
+        paginator = Paginator(transactions_qs.order_by('-created_at'), 25) # 25 por página
+        page_number = request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
+
+        # --- 5. CONTEXTO ---
         context = {
             'page_title': 'Reporte General de Operaciones',
-            'transactions': transactions_qs.order_by('-created_at')[:50], # Limitar para no sobrecargar
+            'transactions': page_obj, # Enviamos el objeto de la página
+            'is_paginated': True,
+            'page_obj': page_obj,
             'start_date': start_date,
             'end_date': end_date,
             'general_summary': general_summary,
             'summary_by_type': summary_by_type,
-            'operation_choices': AdvancedTransaction.OPERATION_CHOICES, # Para el dropdown de filtros
+            'operation_choices': AdvancedTransaction.OPERATION_CHOICES,
             'selected_operation': operation_filter,
         }
         
         return render(request, self.template_name, context)
 
 
+
 class ClientReportView(LoginRequiredMixin, AdminRequiredMixin, View):
     template_name = 'exchange/client_report.html'
     
     def get(self, request, *args, **kwargs):
-        # --- 1. OBTENER DATOS PARA LOS FILTROS ---
-        all_clients = Client.objects.all().order_by('name') # Obtenemos todos los clientes para el <select>
-        
-        # --- 2. PROCESAR LOS FILTROS DE LA URL ---
+        # --- 1. DATOS Y FILTROS ---
+        all_clients = Client.objects.all().order_by('name')
         selected_client_id = request.GET.get('client', '')
         
         today = timezone.localdate()
@@ -515,34 +561,41 @@ class ClientReportView(LoginRequiredMixin, AdminRequiredMixin, View):
         start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
         end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
         
-        # --- 3. CONSTRUIR EL QUERYSET BASE Y APLICAR FILTROS ---
+        # --- 2. QUERYSET BASE Y FILTROS ---
         transactions_qs = AdvancedTransaction.objects.filter(
             status='completed',
-            created_at__gte=start_date,
-            created_at__lt=end_date + timedelta(days=1)
-        )
-        
+            created_at__date__gte=start_date,
+            created_at__date__lte=end_date
+        ).select_related('client') # Optimización
+
         if selected_client_id and selected_client_id.isdigit():
             transactions_qs = transactions_qs.filter(client_id=selected_client_id)
         
-        # --- 4. CÁLCULOS DE RESUMEN ---
+        # --- 3. CÁLCULOS DE RESUMEN ---
         summary_data = transactions_qs.aggregate(
             total_transactions=Count('id'),
-            total_usd_sold=Sum('amount_in', filter=Q(operation_type='SELL_USD_FOR_BS')), # Asumiendo amount_in es USD
-            total_usd_bought=Sum('amount_in', filter=Q(operation_type='BUY_USD_FOR_BS')), # Asumiendo amount_in es USD
+            total_usd_bought=Sum('amount_in', filter=Q(operation_type='BUY_USD_FOR_BS')),
+            total_usd_sold=Sum('amount_in', filter=Q(operation_type='SELL_USD_FOR_BS'))
         )
-
+        
         summary = {
             'total_transactions': summary_data.get('total_transactions') or 0,
-            'total_usd_sold': summary_data.get('total_usd_sold') or 0.00,
             'total_usd_bought': summary_data.get('total_usd_bought') or 0.00,
+            'total_usd_sold': summary_data.get('total_usd_sold') or 0.00,
         }
 
-        # --- 5. CONSTRUIR EL CONTEXTO FINAL ---
+        # --- 4. PAGINACIÓN ---
+        paginator = Paginator(transactions_qs.order_by('-created_at'), 25)
+        page_number = request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
+
+        # --- 5. CONTEXTO ---
         context = {
             'page_title': 'Reporte por Cliente',
-            'transactions': transactions_qs.order_by('-created_at'),
-            'clients': all_clients,  # Aseguramos pasar la lista completa de clientes
+            'transactions': page_obj,
+            'is_paginated': True,
+            'page_obj': page_obj,
+            'clients': all_clients,
             'summary': summary,
             'start_date': start_date,
             'end_date': end_date,
@@ -743,3 +796,99 @@ class AdvancedTransactionDeleteView(LoginRequiredMixin, AdminVerifiedMixin, Dele
     def get_success_url(self):
         messages.success(self.request, f"Operación #{self.object.id} eliminada exitosamente.")
         return reverse_lazy('client-detail', kwargs={'pk': self.object.client.pk})
+
+
+# VISTA PARA ANULAR UNA OPERACIÓN
+@method_decorator(admin_required, name='dispatch')
+class AdvancedTransactionCancelView(LoginRequiredMixin, AdminVerifiedMixin, UpdateView):
+    model = AdvancedTransaction
+    template_name = 'exchange/advanced_transaction_confirm_cancel.html'
+    # No necesitamos campos de formulario, la acción es fija.
+    fields = [] 
+    context_object_name = 'transaction'
+
+    def form_valid(self, form):
+        """
+        Cuando el formulario (en este caso, un simple botón de confirmación) es enviado,
+        cambiamos el estado a 'cancelled'.
+        """
+        transaction = self.get_object()
+        
+        # Verificamos que la transacción no esté ya completada para evitar problemas contables
+        if transaction.status == 'completed':
+            messages.error(self.request, "No se puede anular una operación que ya ha sido completada.")
+            return redirect('client-detail', pk=transaction.client.pk)
+
+        transaction.status = 'cancelled'
+        transaction.save(update_fields=['status']) # Guardamos solo el campo de estado
+        
+        messages.success(self.request, f"Operación #{transaction.id} anulada exitosamente.")
+        return redirect(self.get_success_url())
+
+    def get_success_url(self):
+        # Volvemos al detalle del cliente
+        return reverse_lazy('client-detail', kwargs={'pk': self.object.client.pk})
+    
+
+# ==============================================================================
+# VISTAS DE EXPORTACIÓN
+# ==============================================================================
+
+@login_required
+@admin_required
+def export_general_report_csv(request):
+    """
+    Genera y devuelve un archivo CSV con los datos del reporte general,
+    respetando los filtros de fecha y operación.
+    """
+    # 1. Obtenemos los mismos filtros que en el reporte general
+    today = timezone.localdate()
+    start_date_str = request.GET.get('start_date', today.replace(day=1).strftime('%Y-%m-%d'))
+    end_date_str = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
+    operation_filter = request.GET.get('operation_type', '')
+
+    start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+    end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+    
+    # 2. Aplicamos los mismos filtros al queryset
+    transactions_qs = AdvancedTransaction.objects.filter(
+        status='completed',
+        created_at__date__gte=start_date,
+        created_at__date__lte=end_date
+    ).select_related('client', 'operator').order_by('created_at')
+
+    if operation_filter:
+        transactions_qs = transactions_qs.filter(operation_type=operation_filter)
+
+    # 3. Preparamos la respuesta HTTP
+    response = HttpResponse(
+        content_type='text/csv',
+        headers={'Content-Disposition': f'attachment; filename="reporte_general_{start_date_str}_a_{end_date_str}.csv"'},
+    )
+    response.write(u'\ufeff'.encode('utf8')) # BOM para que Excel reconozca UTF-8
+
+    # 4. Creamos el escritor de CSV y escribimos las filas
+    writer = csv.writer(response)
+    
+    # Escribimos la fila de encabezados
+    writer.writerow([
+        'ID Transacción', 'Fecha', 'Hora', 'Cliente', 'Operador', 
+        'Tipo de Operación', 'Entrada', 'Tasa/Fee', 'Salida', 'Ganancia ($)'
+    ])
+    
+    # Escribimos los datos de cada transacción
+    for tx in transactions_qs:
+        writer.writerow([
+            tx.id,
+            tx.created_at.strftime('%Y-%m-%d'),
+            tx.created_at.strftime('%H:%M:%S'),
+            tx.client.name,
+            tx.operator.username if tx.operator else 'N/A',
+            tx.get_operation_type_display(),
+            tx.amount_in,
+            tx.rate_or_fee,
+            tx.amount_out,
+            tx.profit
+        ])
+        
+    return response
