@@ -1,28 +1,25 @@
 # exchange/forms.py
 
 from django import forms
-from .models import Transaction
+from .models import AdvancedTransaction
 
-class TransactionForm(forms.ModelForm):
+class AdvancedTransactionForm(forms.ModelForm):
     class Meta:
-        model = Transaction
-        # Usamos los nombres de campo nuevos y correctos del modelo Transaction
-        fields = ['operation_type', 'amount_usd', 'exchange_rate', 'status', 'notes']
+        model = AdvancedTransaction
+        # Excluimos los campos que se calculan o asignan automáticamente
+        exclude = ['client', 'operator', 'amount_out', 'profit', 'created_at']
         widgets = {
             'notes': forms.Textarea(attrs={'rows': 3}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Añadimos los IDs y el evento onkeyup para que el JavaScript funcione
-        # y calcule el total en tiempo real.
-        self.fields['amount_usd'].widget.attrs.update({
-            'id': 'id_amount_usd', 
-            'onkeyup': 'calculateTotal()',
-            'autocomplete': 'off' # Evita que el navegador sugiera valores
-        })
-        self.fields['exchange_rate'].widget.attrs.update({
-            'id': 'id_exchange_rate', 
-            'onkeyup': 'calculateTotal()',
-            'autocomplete': 'off'
-        })
+        
+        # Etiquetas iniciales por defecto
+        self.fields['amount_in'].label = "Monto de Entrada"
+        self.fields['rate_or_fee'].label = "Tasa o Porcentaje"
+        
+        # Añadir IDs para que el JavaScript pueda encontrarlos
+        self.fields['operation_type'].widget.attrs.update({'id': 'id_operation_type'})
+        self.fields['amount_in'].widget.attrs.update({'id': 'id_amount_in'})
+        self.fields['rate_or_fee'].widget.attrs.update({'id': 'id_rate_or_fee'})

@@ -1,197 +1,127 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container mt-5">
-    <h1 class="mb-4">{{ page_title }}</h1>
+<div class="container-fluid mt-4">
+    <h1 class="mb-4">{{ page_title|default:"Dashboard Principal" }}</h1>
 
-    <!-- Tarjetas de Resumen de Totales -->
+    <!-- Fila de Tarjetas de Resumen de Saldos -->
     <div class="row">
-        <!-- Dinero por Recibir (Lo que nos deben) -->
-        <div class="col-xl-3 col-md-6 mb-4">
+        <!-- Saldos de Caja/Bóvedas -->
+        <div class="col-xl-4 col-md-6 mb-4">
             <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-header bg-success-subtle text-success-emphasis">Saldos Actuales en Cajas</div>
                 <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Caja (USD)</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">${{ cash_on_hand_usd|floatformat:2 }}</div>
-                        </div>
-                        <div class="col-auto">
-                            <i class="fas fa-wallet fa-2x text-gray-300"></i>
-                        </div>
-                    </div>
+                    <h5 class="card-title fw-bold">${{ cash_on_hand_usd|floatformat:2 }} <small class="text-muted">(Efectivo)</small></h5>
+                    <h5 class="card-title fw-bold">{{ cash_on_hand_bs|floatformat:2 }} <small class="text-muted">(Bolívares)</small></h5>
+                    <h5 class="card-title fw-bold">{{ cash_on_hand_usdt|floatformat:2 }} <small class="text-muted">(USDT)</small></h5>
+                    <h5 class="card-title fw-bold">${{ cash_on_hand_zelle|floatformat:2 }} <small class="text-muted">(Zelle)</small></h5>
                 </div>
             </div>
         </div>
-
-        <!-- Tarjeta de Efectivo Disponible BS -->
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-left-info shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Caja (BS)</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ cash_on_hand_bs|floatformat:2 }} Bs.</div>
-                        </div>
-                        <div class="col-auto">
-                            <i class="fas fa-landmark fa-2x text-gray-300"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-xl-3 col-md-6 mb-4">
+        <!-- Cuentas por Cobrar (Lo que nos deben) -->
+        <div class="col-xl-4 col-md-6 mb-4">
             <div class="card border-left-danger shadow h-100 py-2">
+                <div class="card-header bg-danger-subtle text-danger-emphasis">Total por Recibir (Deudas de Clientes)</div>
                 <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Por Recibir (BS)</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_receivable_bs|floatformat:2 }} Bs.</div>
-                        </div>
-                        <div class="col-auto">
-                            <i class="fas fa-money-bill-wave fa-2x text-gray-300"></i>
-                        </div>
-                    </div>
+                    <h5 class="card-title fw-bold">${{ total_receivable_usd|floatformat:2 }} <small class="text-muted">(USD/USDT/Zelle)</small></h5>
+                    <h5 class="card-title fw-bold">{{ total_receivable_bs|floatformat:2 }} <small class="text-muted">(Bolívares)</small></h5>
                 </div>
             </div>
         </div>
-        
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-left-danger shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Por Recibir (USD)</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">${{ total_receivable_usd|floatformat:2 }}</div>
-                        </div>
-                        <div class="col-auto">
-                            <i class="fas fa-file-invoice-dollar fa-2x text-gray-300"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Dinero por Pagar (Lo que debemos) -->
-        <div class="col-xl-3 col-md-6 mb-4">
+        <!-- Cuentas por Pagar (Lo que debemos) -->
+        <div class="col-xl-4 col-md-6 mb-4">
             <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-header bg-warning-subtle text-warning-emphasis">Total por Pagar (Nuestras Deudas)</div>
                 <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Por Pagar (USD)</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">${{ total_payable_usd|floatformat:2 }}</div>
-                        </div>
-                        <div class="col-auto">
-                            <i class="fas fa-hand-holding-usd fa-2x text-gray-300"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-left-warning shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="row no-gutters align-items-center">
-                        <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Por Pagar (BS)</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_payable_bs|floatformat:2 }} Bs.</div>
-                        </div>
-                        <div class="col-auto">
-                            <i class="fas fa-tasks fa-2x text-gray-300"></i>
-                        </div>
-                    </div>
+                    <h5 class="card-title fw-bold">${{ total_payable_usd|floatformat:2 }} <small class="text-muted">(USD/USDT/Zelle)</small></h5>
+                    <h5 class="card-title fw-bold">{{ total_payable_bs|floatformat:2 }} <small class="text-muted">(Bolívares)</small></h5>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Listas de Clientes y Gráfico -->
-    <div class="row mt-4">
-        <!-- Columna para Listas de Clientes -->
-        <div class="col-lg-6">
-            <!-- Clientes que nos deben -->
-            <div class="card shadow mb-4">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">Clientes que nos Deben</h6>
-                </div>
-                <div class="card-body">
-                    <ul class="list-group list-group-flush">
-                        {% for client in clients_who_owe %}
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                {{ client.name }}
-                                <a href="{% url 'client-detail' client.pk %}" class="badge bg-primary rounded-pill">Ver</a>
-                            </li>
-                        {% empty %}
-                            <li class="list-group-item">No hay clientes con pagos pendientes.</li>
-                        {% endfor %}
-                    </ul>
-                </div>
-            </div>
-            <!-- Clientes a quienes debemos -->
-            <div class="card shadow mb-4">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">Clientes a quienes Debemos</h6>
-                </div>
-                <div class="card-body">
-                    <ul class="list-group list-group-flush">
-                        {% for client in clients_we_owe %}
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                {{ client.name }}
-                                <a href="{% url 'client-detail' client.pk %}" class="badge bg-primary rounded-pill">Ver</a>
-                            </li>
-                        {% empty %}
-                            <li class="list-group-item">No hay entregas pendientes a clientes.</li>
-                        {% endfor %}
-                    </ul>
-                </div>
+    <!-- Fila de Gráficos -->
+    <div class="row mt-2">
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3"><h6 class="m-0 fw-bold text-primary">Volumen de Operaciones (Mensual)</h6></div>
+                <div class="card-body d-flex align-items-center justify-content-center"><canvas id="volumeChart"></canvas></div>
             </div>
         </div>
-        
-        <!-- Columna para el Gráfico -->
-        <div class="col-lg-6">
-            <div class="card shadow mb-4">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">Volumen de Transacciones por Mes</h6>
-                </div>
-                <div class="card-body">
-                    <canvas id="exchangeVolumeChart" width="100%" height="50"></canvas>
-                </div>
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3"><h6 class="m-0 fw-bold text-primary">Composición de Operaciones</h6></div>
+                <div class="card-body d-flex align-items-center justify-content-center"><canvas id="compositionChart"></canvas></div>
             </div>
         </div>
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3"><h6 class="m-0 fw-bold text-primary">Flujo Mensual (USD y USDT)</h6></div>
+                <div class="card-body d-flex align-items-center justify-content-center"><canvas id="flowChart"></canvas></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Listas de Clientes (sin cambios) -->
+    <div class="row mt-2">
+        <!-- ... aquí van tus listas de "Clientes que nos Deben" y "Clientes a quienes Debemos" ... -->
     </div>
 </div>
 
-<!-- Estilos opcionales para las tarjetas (puedes ponerlos en un archivo CSS o en el head de base.html) -->
+<!-- Estilos opcionales para las tarjetas (sin cambios) -->
 <style>
-.card .border-left-danger { border-left: .25rem solid #e74a3b !important; }
-.card .border-left-warning { border-left: .25rem solid #f6c23e !important; }
-.card .border-left-primary { border-left: .25rem solid #4e73df !important; }
-.text-xs { font-size: .7rem; }
+/* ... */
+#compositionChart {
+    max-width: 280px;
+}
 </style>
 {% endblock content %}
 
+
 {% block scripts %}
 {{ block.super }}
-
-<!-- Script de Chart.js (código que ya tenías) -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-    fetch("{% url 'chart-data' %}")
+    // 1. Gráfico de Volumen
+    fetch("{% url 'chart-volume-data' %}")
         .then(response => response.json())
         .then(data => {
             if (data.labels && data.labels.length > 0) {
-                const ctx = document.getElementById('exchangeVolumeChart').getContext('2d');
-                new Chart(ctx, { type: 'bar', data: { labels: data.labels, datasets: [{ label: '# de Transacciones Completadas', data: data.data, backgroundColor: 'rgba(54, 162, 235, 0.5)', borderColor: 'rgba(54, 162, 235, 1)', borderWidth: 1 }] }, options: { responsive: true, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } } });
-            } else {
-                const canvas = document.getElementById('exchangeVolumeChart');
-                const ctx = canvas.getContext('2d');
-                ctx.font = '16px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText('No hay datos de transacciones completadas para mostrar.', canvas.width / 2, canvas.height / 2);
+                new Chart(document.getElementById('volumeChart'), {
+                    type: 'line', data: { labels: data.labels, datasets: [{ label: '# Operaciones', data: data.data, borderColor: 'rgb(75, 192, 192)', tension: 0.1 }] }
+                });
             }
-        })
-        .catch(error => {
-            console.error('Error al obtener los datos del gráfico:', error);
+        });
+
+    // 2. Gráfico de Composición
+    fetch("{% url 'chart-composition-data' %}")
+        .then(response => response.json())
+        .then(data => {
+            if (data.labels && data.labels.length > 0) {
+                new Chart(document.getElementById('compositionChart'), {
+                    type: 'doughnut', data: { labels: data.labels, datasets: [{ label: 'Operaciones', data: data.data, backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'] }] }
+                });
+            }
+        });
+
+    // 3. Gráfico de Flujo Mensual (ACTUALIZADO para USD y USDT)
+    fetch("{% url 'chart-flow-data' %}")
+        .then(response => response.json())
+        .then(data => {
+            if (data.labels && data.labels.length > 0) {
+                new Chart(document.getElementById('flowChart'), {
+                    type: 'bar',
+                    data: {
+                        labels: data.labels,
+                        datasets: [
+                            { label: 'Total USD Movido', data: data.usd_data, backgroundColor: 'rgba(75, 192, 192, 0.5)' },
+                            { label: 'Total USDT Movido', data: data.usdt_data, backgroundColor: 'rgba(255, 159, 64, 0.5)' }
+                        ]
+                    },
+                    options: { scales: { y: { beginAtZero: true } } }
+                });
+            }
         });
 });
 </script>

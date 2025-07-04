@@ -41,8 +41,8 @@
                 <!-- Enlaces Principales a la Izquierda -->
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                     <li class="nav-item">
-                        <a class="nav-link {% if 'session' in request.resolver_match.view_name %}active{% endif %}" href="{% url 'daily-session' %}">
-                            <i class="fas fa-cash-register"></i> Caja
+                        <a class="nav-link {% if 'vault' in request.resolver_match.view_name %}active{% endif %}" href="{% url 'vault-management' %}">
+                            <i class="fas fa-cash-register"></i> Cajas
                         </a>
                     </li>
                     <li class="nav-item">
@@ -56,14 +56,14 @@
                         </a>
                     </li>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <a class="nav-link dropdown-toggle {% if 'report' in request.resolver_match.view_name %}active{% endif %}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="fas fa-file-alt"></i> Reportes
                         </a>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="#">Reporte Diario (Próximamente)</a></li>
-                            <li><a class="dropdown-item" href="#">Reporte Mensual (Próximamente)</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="#">Exportar a Excel (Próximamente)</a></li>
+                            <li><a class="dropdown-item" href="{% url 'report-daily-sessions' %}">Reporte de Cajas Diarias</a></li>
+                            <!-- ENLACE ACTIVADO -->
+                            <li><a class="dropdown-item" href="{% url 'report-general' %}">Reporte General de Operaciones</a></li>
+                            <li><a class="dropdown-item" href="{% url 'report-by-client' %}">Reporte por Cliente</a></li>
                         </ul>
                     </li>
                 </ul>
