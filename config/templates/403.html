@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Permiso Denegado{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 text-center">
+            <div class="card border-danger shadow">
+                <div class="card-header bg-danger text-white">
+                    <h1 class="display-4"><i class="fas fa-hand-paper"></i> Acceso Denegado</h1>
+                </div>
+                <div class="card-body">
+                    <h2 class="card-title">No tienes permiso para realizar esta acción.</h2>
+                    <p class="lead">
+                        Esta área o función está restringida a usuarios con privilegios de administrador.
+                    </p>
+                    <p>
+                        Si crees que esto es un error, por favor, contacta al administrador del sistema.
+                    </p>
+                    <hr>
+                    <a href="{{ request.META.HTTP_REFERER|default:'/' }}" class="btn btn-primary btn-lg">
+                        <i class="fas fa-arrow-left"></i> Volver a la página anterior
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

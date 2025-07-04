@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header"><h3 class="mb-0">{{ page_title }}</h3></div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        {{ form|crispy }}
+
+                        <!-- Contenedor para mostrar el resultado del cálculo -->
+                        <div class="alert alert-info mt-4">
+                            <h5 class="alert-heading" id="result-title">Resultado de la Operación</h5>
+                            <hr>
+                            <p class="mb-0 fs-4" id="result-display">--</p>
+                            <p class="mb-0" id="profit-display"></p>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-save"></i> Registrar Operación
+                            </button>
+                            <a href="{{ cancel_url }}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Cancelar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const operationSelect = document.getElementById('id_operation_type');
+    const amountInInput = document.getElementById('id_amount_in');
+    const rateFeeInput = document.getElementById('id_rate_or_fee');
+    
+    // Elementos de la UI que cambian
+    const amountInLabel = document.querySelector('label[for="id_amount_in"]');
+    const rateFeeLabel = document.querySelector('label[for="id_rate_or_fee"]');
+    const resultTitle = document.getElementById('result-title');
+    const resultDisplay = document.getElementById('result-display');
+    const profitDisplay = document.getElementById('profit-display');
+
+    function updateFormUI() {
+        const operation = operationSelect.value;
+        const amountIn = parseFloat(amountInInput.value) || 0;
+        const rateFee = parseFloat(rateFeeInput.value) || 0;
+        let amountOut = 0;
+        let profit = 0;
+        let resultText = '--';
+        let profitText = '';
+
+        // Definiciones de etiquetas y cálculos por operación
+        const operationConfigs = {
+            'USDT_FOR_CASH': {
+                inLabel: "Monto a Entregar (USDT)",
+                rateLabel: "Comisión a Cobrar (%)",
+                outTitle: "Cliente Recibe en Efectivo (USD)",
+                calculate: () => {
+                    profit = amountIn * (rateFee / 100);
+                    amountOut = amountIn - profit;
+                    resultText = `$${amountOut.toFixed(2)}`;
+                    profitText = `Nuestra ganancia: $${profit.toFixed(2)}`;
+                }
+            },
+            'CASH_FOR_USDT': {
+                inLabel: "Monto a Entregar (Efectivo USD)",
+                rateLabel: "Comisión a Cobrar (%)",
+                outTitle: "Cliente Recibe en USDT",
+                calculate: () => {
+                    profit = amountIn * (rateFee / 100);
+                    amountOut = amountIn - profit;
+                    resultText = `${amountOut.toFixed(2)} USDT`;
+                    profitText = `Nuestra ganancia: $${profit.toFixed(2)}`;
+                }
+            },
+            'USDT_FOR_BS': {
+                inLabel: "Monto a Entregar (USDT)",
+                rateLabel: "Tasa de Cambio (BS por USDT)",
+                outTitle: "Cliente Recibe en Bolívares",
+                calculate: () => {
+                    amountOut = amountIn * rateFee;
+                    resultText = `${amountOut.toLocaleString('es-VE', {minimumFractionDigits: 2})} Bs.`;
+                }
+            },
+            'SELL_USD_FOR_BS': {
+                inLabel: "Monto a Vender (USD Efectivo)",
+                rateLabel: "Tasa de Cambio (BS por USD)",
+                outTitle: "Cliente Recibe en Bolívares",
+                calculate: () => {
+                    amountOut = amountIn * rateFee;
+                    resultText = `${amountOut.toLocaleString('es-VE', {minimumFractionDigits: 2})} Bs.`;
+                }
+            },
+            'BUY_USD_FOR_BS': {
+                inLabel: "Monto a Comprar (USD Efectivo)",
+                rateLabel: "Tasa de Cambio (BS por USD)",
+                outTitle: "Cliente Paga en Bolívares",
+                calculate: () => {
+                    amountOut = amountIn * rateFee;
+                    resultText = `${amountOut.toLocaleString('es-VE', {minimumFractionDigits: 2})} Bs.`;
+                }
+            },
+            'ZELLE_FOR_CASH': {
+                inLabel: "Monto a Entregar (Zelle)",
+                rateLabel: "Monto Efectivo Recibido",
+                outTitle: "Registro de Movimiento",
+                calculate: () => {
+                    // En esta operación, rate_or_fee es el monto de salida directo
+                    amountOut = rateFee; 
+                    resultText = `Se entregan $${amountIn.toFixed(2)} por Zelle y se reciben $${amountOut.toFixed(2)} en efectivo.`;
+                }
+            }
+        };
+
+        // Aplicar la configuración
+        const config = operationConfigs[operation];
+        if (config) {
+            amountInLabel.textContent = config.inLabel;
+            rateFeeLabel.textContent = config.rateLabel;
+            resultTitle.textContent = config.outTitle;
+            config.calculate();
+        } else {
+            // Estado por defecto si no hay operación seleccionada
+            amountInLabel.textContent = "Monto de Entrada";
+            rateFeeLabel.textContent = "Tasa o Porcentaje";
+            resultTitle.textContent = "Resultado de la Operación";
+        }
+        
+        resultDisplay.textContent = resultText;
+        profitDisplay.textContent = profitText;
+    }
+
+    // Event listeners para actualizar la UI en tiempo real
+    operationSelect.addEventListener('change', updateFormUI);
+    amountInInput.addEventListener('keyup', updateFormUI);
+    rateFeeInput.addEventListener('keyup', updateFormUI);
+
+    // Llamar una vez al cargar la página para establecer el estado inicial
+    updateFormUI();
+});
+</script>
+{% endblock %}

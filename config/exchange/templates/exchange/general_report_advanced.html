@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h1 class="mb-4">{{ page_title }}</h1>
+
+    <!-- Panel de Filtros Avanzado -->
+    <div class="card shadow mb-4">
+        <div class="card-header"><h6 class="m-0 fw-bold text-primary">Filtros del Reporte</h6></div>
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label for="start_date" class="form-label">Fecha de Inicio</label>
+                    <input type="date" name="start_date" id="start_date" value="{{ start_date|date:'Y-m-d' }}" class="form-control">
+                </div>
+                <div class="col-md-4">
+                    <label for="end_date" class="form-label">Fecha de Fin</label>
+                    <input type="date" name="end_date" id="end_date" value="{{ end_date|date:'Y-m-d' }}" class="form-control">
+                </div>
+                <div class="col-md-2">
+                    <label for="operation_type" class="form-label">Operación</label>
+                    <select name="operation_type" id="operation_type" class="form-select">
+                        <option value="">-- Todas --</option>
+                        {% for value, name in operation_choices %}
+                            <option value="{{ value }}" {% if value == selected_operation %}selected{% endif %}>{{ name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">Filtrar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Resumen General por Tipo de Operación -->
+    <div class="card shadow mb-4">
+        <div class="card-header"><h6 class="m-0 fw-bold text-primary">Resumen por Tipo de Operación</h6></div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered mb-0">
+                    <thead class="table-light text-center">
+                        <tr>
+                            <th>Tipo de Operación</th>
+                            <th># Trans.</th>
+                            <th>Total Entradas</th>
+                            <th>Total Salidas</th>
+                            <th>Ganancia Total</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-center">
+                        {% for item in summary_by_type %}
+                        <tr>
+                            <td class="text-start ps-3">{{ item.display_name }}</td>
+                            <td>{{ item.count }}</td>
+                            <td>{{ item.total_in|floatformat:2 }}</td>
+                            <td>{{ item.total_out|floatformat:2 }}</td>
+                            <td class="fw-bold {% if item.total_profit > 0 %}text-success{% elif item.total_profit < 0 %}text-danger{% endif %}">
+                                ${{ item.total_profit|floatformat:2 }}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5">No hay datos para los filtros seleccionados.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer d-flex justify-content-end bg-light-subtle">
+            <strong class="me-4">Transacciones Totales: <span class="badge bg-primary fs-6">{{ general_summary.total_transactions }}</span></strong>
+            <strong class="text-success">Ganancia Total del Período: <span class="badge bg-success fs-6">${{ general_summary.total_profit|floatformat:2 }}</span></strong>
+        </div>
+    </div>
+
+    <!-- Desglose de Últimas 50 Transacciones -->
+    <div class="card shadow mb-4">
+        <div class="card-header"><h6 class="m-0 fw-bold text-primary">Desglose de Transacciones Completadas (últimas 50)</h6></div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Cliente</th>
+                            <th>Operación</th>
+                            <th>Entrada</th>
+                            <th>Tasa/Fee</th>
+                            <th>Salida</th>
+                            <th>Ganancia</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for tx in transactions %}
+                        <tr>
+                            <td>{{ tx.created_at|date:"d/m/Y H:i" }}</td>
+                            <td><a href="{% url 'client-detail' tx.client.pk %}">{{ tx.client.name }}</a></td>
+                            <td>{{ tx.get_operation_type_display }}</td>
+                            <td>{{ tx.amount_in|floatformat:2 }}</td>
+                            <td>{{ tx.rate_or_fee|floatformat:4 }}</td>
+                            <td>{{ tx.amount_out|floatformat:2 }}</td>
+                            <td class="fw-bold {% if tx.profit > 0 %}text-success{% endif %}">
+                                ${{ tx.profit|floatformat:2 }}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-4">No hay transacciones para mostrar.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

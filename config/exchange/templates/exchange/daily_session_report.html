@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h1 class="mb-4">Reporte de Cajas Diarias</h1>
+    <p class="text-muted">Historial de todas las jornadas de caja (bóvedas) cerradas.</p>
+
+    <div class="card shadow">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-bordered mb-0">
+                    <thead class="table-light align-middle text-center">
+                        <tr>
+                            <th rowspan="2">Fecha</th>
+                            <th rowspan="2">Nombre de la Caja</th>
+                            <th colspan="4">Saldos Iniciales</th>
+                            <th colspan="4">Saldos Finales</th>
+                            <th rowspan="2">Operado por</th>
+                        </tr>
+                        <tr>
+                            <th>USD</th>
+                            <th>BS</th>
+                            <th>USDT</th>
+                            <th>Zelle</th>
+                            <th>USD</th>
+                            <th>BS</th>
+                            <th>USDT</th>
+                            <th>Zelle</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-center">
+                        {% for session in sessions %}
+                        <tr>
+                            <td><strong>{{ session.date|date:"d/m/Y" }}</strong></td>
+                            <td>{{ session.vault.name }}</td>
+                            <!-- Saldos Iniciales -->
+                            <td>${{ session.opening_balance_usd|floatformat:2 }}</td>
+                            <td>{{ session.opening_balance_bs|floatformat:2 }}</td>
+                            <td>{{ session.opening_balance_usdt|floatformat:2 }}</td>
+                            <td>${{ session.opening_balance_zelle|floatformat:2 }}</td>
+                            <!-- Saldos Finales -->
+                            <td class="table-success">${{ session.closing_balance_usd|floatformat:2 }}</td>
+                            <td class="table-success">{{ session.closing_balance_bs|floatformat:2 }}</td>
+                            <td class="table-success">{{ session.closing_balance_usdt|floatformat:2 }}</td>
+                            <td class="table-success">${{ session.closing_balance_zelle|floatformat:2 }}</td>
+                            <td>
+                                <small>Abierta por: {{ session.opened_by.username }}</small><br>
+                                <small>Cerrada por: {{ session.closed_by.username }}</small>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="11" class="text-center py-4">No hay reportes de cajas cerradas.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <!-- Aquí iría la paginación si la necesitas -->
+    </div>
+</div>
+{% endblock %}
