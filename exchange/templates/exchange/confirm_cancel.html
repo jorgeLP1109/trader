@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card border-warning">
+                <div class="card-header bg-warning">
+                    <h3>Confirmar Anulación de Operación</h3>
+                </div>
+                <div class="card-body">
+                    <p>¿Estás seguro de que quieres anular la operación <strong>#{{ transaction.id }}</strong> del cliente "<strong>{{ transaction.client.name }}</strong>"?</p>
+                    <p class="text-muted">
+                        Tipo de Operación: <strong>{{ transaction.get_operation_type_display }}</strong><br>
+                        Monto de Entrada: <strong>{{ transaction.amount_in|floatformat:2 }}</strong>
+                    </p>
+                    <p class="text-danger">
+                        <strong>Atención:</strong> Esta acción marcará la operación como cancelada. No afectará los saldos de caja si está pendiente, pero la quitará de los cálculos de deudas.
+                    </p>
+                    <form method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-warning">Sí, estoy seguro. Anular.</button>
+                        <a href="{% url 'client-detail' transaction.client.pk %}" class="btn btn-secondary">Cancelar</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

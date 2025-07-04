@@ -36,6 +36,8 @@ from .views import (
     AdminPasswordVerifyView,
 )
 from .views import AdvancedTransactionUpdateView, AdvancedTransactionDeleteView
+from .views import AdvancedTransactionCancelView
+from .views import export_general_report_csv 
 
 urlpatterns = [
     # Dashboard
@@ -53,6 +55,7 @@ urlpatterns = [
     path('clients/<int:client_pk>/new-operation/', AdvancedTransactionCreateView.as_view(), name='advanced-transaction-create'),
     path('operations/<int:pk>/update/', AdvancedTransactionUpdateView.as_view(), name='advanced-transaction-update'),
     path('operations/<int:pk>/delete/', AdvancedTransactionDeleteView.as_view(), name='advanced-transaction-delete'),
+    path('operations/<int:pk>/cancel/', AdvancedTransactionCancelView.as_view(), name='advanced-transaction-cancel'),
 
     # Gestión de Caja/Bóvedas
     path('vaults/', VaultManagementView.as_view(), name='vault-management'),
@@ -71,4 +74,7 @@ urlpatterns = [
 
     # Verificación de Admin
     path('verify-admin/', AdminPasswordVerifyView.as_view(), name='admin-verify'),
+
+    # --- URL DE EXPORTACIÓN ---
+    path('export/general-report/', export_general_report_csv, name='export-general-report'),
 ]
