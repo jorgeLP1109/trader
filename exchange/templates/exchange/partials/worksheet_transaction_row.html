@@ -1,0 +1,20 @@
+<!-- exchange/templates/exchange/partials/worksheet_transaction_row.html -->
+<tr id="transaction-row-{{ tx.id }}">
+    <td>{{ tx.created_at|date:"H:i:s" }}</td>
+    <td>{{ tx.get_operation_type_display }}</td>
+    <td>{{ tx.amount_in|floatformat:2 }}</td>
+    <td>{{ tx.rate_or_fee|floatformat:4 }}</td>
+    <td>{{ tx.amount_out|floatformat:2 }}</td>
+    <td class="status-cell" data-tx-id="{{ tx.id }}" data-current-status="{{ tx.status }}">
+        <!-- El estado se muestra como un badge. Al hacer click, se convertirá en un select. -->
+        <span class="badge {% if tx.status == 'pending' %}bg-warning text-dark{% elif tx.status == 'completed' %}bg-success{% else %}bg-secondary{% endif %} status-badge">
+            {{ tx.get_status_display }}
+        </span>
+        <!-- El select está oculto por defecto -->
+        <select class="form-select form-select-sm status-select d-none">
+            {% for value, name in tx.STATUS_CHOICES %}
+                <option value="{{ value }}" {% if tx.status == value %}selected{% endif %}>{{ name }}</option>
+            {% endfor %}
+        </select>
+    </td>
+</tr>

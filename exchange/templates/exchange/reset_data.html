@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card border-danger shadow">
+                <div class="card-header bg-danger text-white">
+                    <h3 class="mb-0"><i class="fas fa-bomb"></i> Resetear Datos de la Aplicación</h3>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-danger">
+                        <h4><strong>¡ADVERTENCIA MÁXIMA!</strong></h4>
+                        <p>Estás a punto de borrar permanentemente todos los datos transaccionales de la aplicación. Esto incluye:</p>
+                        <ul>
+                            <li>Todos los <strong>Clientes</strong>.</li>
+                            <li>Todas las <strong>Operaciones</strong>.</li>
+                            <li>Todo el historial de <strong>Cajas</strong> y <strong>Hojas de Trabajo</strong>.</li>
+                        </ul>
+                        <p>Los <strong>usuarios</strong> y la configuración de las bóvedas no serán eliminados. Los saldos de las cajas se resetearán a cero.</p>
+                        <p class="fw-bold">ESTA ACCIÓN ES IRREVERSIBLE.</p>
+                    </div>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        {{ form|crispy }}
+                        <div class="d-grid mt-4">
+                            <button type="submit" class="btn btn-danger btn-lg">Entiendo los riesgos, proceder con el reseteo</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

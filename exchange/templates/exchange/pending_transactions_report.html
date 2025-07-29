@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h1 class="mb-4">{{ page_title }}</h1>
+
+    <!-- Filtro de Fecha -->
+    <div class="card shadow mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label for="date" class="form-label">Seleccionar Fecha</label>
+                    <input type="date" name="date" id="date" value="{{ report_date|date:'Y-m-d' }}" class="form-control">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">Ver Reporte</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Panel de Envío por Correo -->
+    <div class="card shadow mb-4">
+        <div class="card-header"><h6 class="m-0 fw-bold text-primary"><i class="fas fa-envelope"></i> Enviar Reporte por Correo</h6></div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="date" value="{{ report_date|date:'Y-m-d' }}">
+                <div class="mb-3">
+                    <label for="emails" class="form-label">Direcciones de correo (separadas por coma)</label>
+                    <input type="text" name="emails" id="emails" class="form-control" placeholder="ejemplo1@correo.com, ejemplo2@correo.com" required>
+                </div>
+                <button type="submit" class="btn btn-success">Enviar Correo</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabla de Operaciones Pendientes -->
+    <div class="card shadow mb-4">
+        <div class="card-header"><h6 class="m-0 fw-bold text-primary">Desglose de Operaciones Pendientes</h6></div>
+        <div class="card-body p-0">
+            {% include 'emails/pending_transactions_email.html' with is_web_view=True %}
+        </div>
+    </div>
+</div>
+{% endblock %}

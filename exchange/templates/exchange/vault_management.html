@@ -19,10 +19,19 @@
             <div class="col-lg-4 col-md-6 mb-4">
                 {% with active_session=active_sessions|get_item:vault.id session_today=sessions_today|get_item:vault.id %}
                     <div class="card h-100 shadow {% if active_session %}border-success{% else %}border-secondary{% endif %}">
-                        <div class="card-header {% if active_session %}bg-success text-white{% else %}bg-light{% endif %}">
-                            <h5 class="mb-0"><i class="fas fa-cash-register"></i> {{ vault.name }}</h5>
-                            <small class="fw-normal">Estado: {% if active_session %}Abierta{% else %}Cerrada{% endif %}</small>
+                        
+                        <!-- ===== CARD HEADER MODIFICADO CON BOTÓN DE AJUSTE ===== -->
+                        <div class="card-header d-flex justify-content-between align-items-center {% if active_session %}bg-success text-white{% else %}bg-light{% endif %}">
+                            <div>
+                                <h5 class="mb-0"><i class="fas fa-cash-register"></i> {{ vault.name }}</h5>
+                                <small class="fw-normal">Estado: {% if active_session %}Abierta{% else %}Cerrada{% endif %}</small>
+                            </div>
+                            <!-- BOTÓN DE AJUSTE DE EMERGENCIA -->
+                            <a href="{% url 'vault-adjustment' vault.id %}" class="btn btn-sm {% if active_session %}btn-outline-light{% else %}btn-outline-danger{% endif %}" title="Ajuste de Emergencia">
+                                <i class="fas fa-tools"></i>
+                            </a>
                         </div>
+                        <!-- ===== FIN DEL CARD HEADER MODIFICADO ===== -->
 
                         <div class="card-body">
                             {% if active_session %}
@@ -42,30 +51,48 @@
                             {% else %}
                                 <!-- VISTA DE CAJA CERRADA -->
                                 {% if session_today %}
-                                    <div class="alert alert-info h-100 d-flex align-items-center justify-content-center">
-                                        Esta caja ya fue operada y cerrada hoy.
-                                    </div>
+                                    {% if session_today.status == 'closed' %}
+                                        <!-- OPCIÓN 1: La caja de hoy fue cerrada, se puede reabrir -->
+                                        <div class="alert alert-secondary text-center h-100 d-flex flex-column justify-content-center">
+                                            <p class="mb-2">Esta caja fue cerrada hoy.</p>
+                                            <p class="mb-3"><small>¿Deseas continuar operando?</small></p>
+                                            <form action="{% url 'reopen-vault-session' session_today.id %}" method="post" onsubmit="return confirm('¿Estás seguro de que quieres reabrir la caja {{ vault.name }}? Se restaurarán los saldos de cierre.');">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-warning">
+                                                    <i class="fas fa-undo"></i> Reabrir Caja
+                                                </button>
+                                            </form>
+                                        </div>
+                                    {% else %}
+                                        <!-- OPCIÓN 2: La caja de hoy está abierta -->
+                                        <div class="alert alert-info h-100 d-flex align-items-center justify-content-center">
+                                            Esta caja está actualmente en uso.
+                                        </div>
+                                    {% endif %}
                                 {% else %}
+                                    <!-- OPCIÓN 3: La caja de hoy nunca ha sido abierta. Mostrar formulario. -->
                                     <form action="{% url 'open-vault-session' vault.id %}" method="post">
                                         {% csrf_token %}
                                         <p>Ingresa los saldos iniciales para abrir la caja hoy ({{ "now"|date:"d/m/Y" }}).</p>
                                         <div class="input-group input-group-sm mb-2">
-                                            <label for="opening_balance_usd" class="input-group-text label-width">USD</label>
+                                            <label for="opening_balance_usd" class="input-group-text input-group-text-fixed-width">USD</label>
                                             <input type="number" step="0.01" id="opening_balance_usd" name="opening_balance_usd" class="form-control" value="0.00" title="Saldo inicial en USD" placeholder="Ingrese saldo en USD">
                                         </div>
                                         <div class="input-group input-group-sm mb-2">
-                                            <span class="input-group-text label-width">BS</span>
+                                            <span class="input-group-text input-group-text-fixed-width">BS</span>
                                             <input type="number" step="0.01" name="opening_balance_bs" class="form-control" value="0.00" title="Saldo inicial en BS" placeholder="Ingrese saldo en BS">
                                         </div>
                                         <div class="input-group input-group-sm mb-2">
-                                            <span class="input-group-text label-width">USDT</span>
+                                            <span class="input-group-text input-group-text-fixed-width">USDT</span>
                                             <input type="number" step="0.01" name="opening_balance_usdt" class="form-control" value="0.00" title="Saldo inicial en USDT" placeholder="Ingrese saldo en USDT">
                                         </div>
                                         <div class="input-group input-group-sm mb-2">
-                                            <span class="input-group-text label-width-zelle">Zelle</span>
+                                            <span class="input-group-text input-group-text-zelle">Zelle</span>
                                             <input type="number" step="0.01" name="opening_balance_zelle" class="form-control" value="0.00" title="Saldo inicial en Zelle" placeholder="Ingrese saldo en Zelle">
                                         </div>
-                                        <button type="submit" class="btn btn-success w-100 mt-3">Abrir Caja</button>
+                                        <button type="submit" class="btn btn-success w-100 mt-3">
+                                            <i class="fas fa-play-circle"></i> Abrir Caja
+                                        </button>
                                     </form>
                                 {% endif %}
                             {% endif %}
