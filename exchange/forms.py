@@ -9,8 +9,7 @@ from .models import VaultAdjustment
 class AdvancedTransactionForm(forms.ModelForm):
     class Meta:
         model = AdvancedTransaction
-        # Eliminamos 'base_rate' y los campos autocalculados
-        fields = ['operation_type', 'status', 'amount_in', 'rate_or_fee', 'notes']
+        fields = ['operation_type', 'status', 'amount_in', 'rate_or_fee', 'base_rate', 'notes']
         widgets = {
             'notes': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Añade cualquier nota relevante aquí...'}),
         }

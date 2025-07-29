@@ -3,23 +3,46 @@
 {% block content %}
 <div class="container-fluid mt-4">
     <h1 class="mb-4">{{ page_title }}</h1>
-
+    
     <!-- Panel de Filtros -->
     <div class="card shadow mb-4">
         <div class="card-header"><h6 class="m-0 fw-bold text-primary">Filtros del Reporte</h6></div>
         <div class="card-body">
-            <form method="get" id="report-form"><div class="row g-3 align-items-end"><div class="col-md-4"><label for="client" class="form-label">Cliente</label><select name="client" id="client" class="form-select"><option value="">-- Todos los Clientes --</option>{% for client_obj in clients %}<option value="{{ client_obj.pk }}" {% if client_obj.pk == selected_client_id %}selected{% endif %}>{{ client_obj.name }}</option>{% endfor %}</select></div><div class="col-md-3"><label for="start_date" class="form-label">Fecha de Inicio</label><input type="date" name="start_date" id="start_date" value="{{ start_date|date:'Y-m-d' }}" class="form-control"></div><div class="col-md-3"><label for="end_date" class="form-label">Fecha de Fin</label><input type="date" name="end_date" id="end_date" value="{{ end_date|date:'Y-m-d' }}" class="form-control"></div><div class="col-md-2"><button type="submit" class="btn btn-primary w-100">Filtrar</button></div></div><div class="row mt-3"><div class="col-auto"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="setRange('today')">Hoy</button><button type="button" class="btn btn-sm btn-outline-secondary" onclick="setRange('week')">Esta Semana</button><button type="button" class="btn btn-sm btn-outline-secondary" onclick="setRange('month')">Este Mes</button></div></div></form>
+            <form method="get" id="report-form">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-4"><label for="client" class="form-label">Cliente</label><select name="client" id="client" class="form-select"><option value="">-- Todos los Clientes --</option>{% for client_obj in clients %}<option value="{{ client_obj.pk }}" {% if client_obj.pk == selected_client_id %}selected{% endif %}>{{ client_obj.name }}</option>{% endfor %}</select></div>
+                    <div class="col-md-3"><label for="start_date" class="form-label">Fecha de Inicio</label><input type="date" name="start_date" id="start_date" value="{{ start_date|date:'Y-m-d' }}" class="form-control"></div>
+                    <div class="col-md-3"><label for="end_date" class="form-label">Fecha de Fin</label><input type="date" name="end_date" id="end_date" value="{{ end_date|date:'Y-m-d' }}" class="form-control"></div>
+                    <div class="col-md-2"><button type="submit" class="btn btn-primary w-100">Filtrar</button></div>
+                </div>
+                <div class="row mt-3"><div class="col-auto"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="setRange('today')">Hoy</button><button type="button" class="btn btn-sm btn-outline-secondary" onclick="setRange('week')">Esta Semana</button><button type="button" class="btn btn-sm btn-outline-secondary" onclick="setRange('month')">Este Mes</button></div></div>
+            </form>
         </div>
     </div>
 
     <!-- Tarjetas de Resumen -->
     <div class="row">
-        <div class="col-lg-4 col-md-6 mb-4"><div class="card bg-light text-primary border-primary h-100"><div class="card-body"><div class="fw-bold text-primary text-uppercase mb-1">Volumen Comprado (USD)</div><div class="h5 mb-0">${{ summary.total_usd_bought|floatformat:2 }}</div></div></div></div>
-        <div class="col-lg-4 col-md-6 mb-4"><div class="card bg-light text-success border-success h-100"><div class="card-body"><div class="fw-bold text-success text-uppercase mb-1">Volumen Vendido (USD)</div><div class="h5 mb-0">${{ summary.total_usd_sold|floatformat:2 }}</div></div></div></div>
-        <div class="col-lg-4 col-md-6 mb-4"><div class="card bg-light text-info border-info h-100"><div class="card-body"><div class="fw-bold text-info text-uppercase mb-1"># Operaciones</div><div class="h5 mb-0">{{ summary.total_transactions }}</div></div></div></div>
+        <div class="col-lg-8 mb-4">
+            <div class="card bg-light border-secondary h-100">
+                <div class="card-header"><div class="fw-bold text-secondary text-uppercase">Volumen Total Movido con Cliente</div></div>
+                <div class="card-body d-flex flex-wrap justify-content-around align-items-center">
+                    <div class="text-center mx-3 my-2"><small>USD (Efectivo)</small><h5 class="mb-0">${{ summary.volume.usd_in|add:summary.volume.usd_out|floatformat:2 }}</h5></div>
+                    <div class="text-center mx-3 my-2"><small>Bolívares</small><h5 class="mb-0">{{ summary.volume.bs_in|add:summary.volume.bs_out|floatformat:2 }}</h5></div>
+                    <div class="text-center mx-3 my-2"><small>USDT</small><h5 class="mb-0">{{ summary.volume.usdt_in|add:summary.volume.usdt_out|floatformat:2 }}</h5></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4 mb-4">
+            <div class="card bg-success-subtle border-success h-100">
+                <div class="card-header"><div class="fw-bold text-success text-uppercase">Ganancia Total (Aprox. BS)</div></div>
+                <div class="card-body d-flex align-items-center justify-content-center">
+                    <h3 class="mb-0">{{ summary.total_profit_in_bs|floatformat:2 }} Bs.</h3>
+                </div>
+            </div>
+        </div>
     </div>
 
-   <!-- Tabla de Desglose -->
+    <!-- Tabla de Desglose -->
     <div class="card shadow mb-4">
         <div class="card-header"><h6 class="m-0 fw-bold text-primary">Desglose de Transacciones Completadas</h6></div>
         <div class="card-body p-0">
@@ -27,9 +50,24 @@
         </div>
         {% if is_paginated %}
         <div class="card-footer">
-            <!-- ... (código de paginación se queda igual) ... -->
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center mb-0">
+                    {% with base_url="start_date="|add:start_date|date:"Y-m-d"|add:"&end_date="|add:end_date|date:"Y-m-d"|add:"&client="|add:selected_client_id|default_if_none:"" %}
+                        {% if page_obj.has_previous %}
+                            <li class="page-item"><a class="page-link" href="?page=1&{{ base_url }}">« Primera</a></li>
+                            <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}&{{ base_url }}">Anterior</a></li>
+                        {% endif %}
+                        <li class="page-item disabled"><span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}.</span></li>
+                        {% if page_obj.has_next %}
+                            <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}&{{ base_url }}">Siguiente</a></li>
+                            <li class="page-item"><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&{{ base_url }}">Última »</a></li>
+                        {% endif %}
+                    {% endwith %}
+                </ul>
+            </nav>
         </div>
         {% endif %}
+    </div>
 </div>
 {% endblock %}
 
@@ -42,14 +80,9 @@ function setRange(period) {
     const endInput = document.getElementById('end_date');
     let startDate;
     const toISODate = (date) => date.toISOString().split('T')[0];
-    if (period === 'today') {
-        startDate = today;
-    } else if (period === 'week') {
-        const dayOfWeek = today.getDay();
-        startDate = new Date(today.setDate(today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1) ));
-    } else if (period === 'month') {
-        startDate = new Date(today.getFullYear(), today.getMonth(), 1);
-    }
+    if (period === 'today') { startDate = today; } 
+    else if (period === 'week') { const dayOfWeek = today.getDay(); startDate = new Date(today.setDate(today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1))); } 
+    else if (period === 'month') { startDate = new Date(today.getFullYear(), today.getMonth(), 1); }
     startInput.value = toISODate(startDate);
     endInput.value = toISODate(new Date());
     document.getElementById('report-form').submit();

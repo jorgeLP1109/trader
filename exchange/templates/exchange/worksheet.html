@@ -111,14 +111,12 @@ document.addEventListener("DOMContentLoaded", function() {
     const operationSelect = document.getElementById('id_operation_type');
     const amountInInput = document.getElementById('id_amount_in');
     const rateFeeInput = document.getElementById('id_rate_or_fee');
-    const baseRateInput = document.getElementById('id_base_rate'); // Puede no existir
     
     const amountInLabel = document.querySelector('label[for="id_amount_in"]');
     const rateFeeLabel = document.querySelector('label[for="id_rate_or_fee"]');
     const resultTitle = document.getElementById('result-title');
     const resultDisplay = document.getElementById('result-display');
     const profitDisplay = document.getElementById('profit-display');
-    const baseRateFieldContainer = document.getElementById('div_id_base_rate');
 
     function updateFormUI() {
         if (!operationSelect) return;
@@ -126,70 +124,36 @@ document.addEventListener("DOMContentLoaded", function() {
         const operation = operationSelect.value;
         const amountIn = parseFloat(amountInInput.value) || 0;
         const rateFee = parseFloat(rateFeeInput.value) || 0;
-        const baseRate = baseRateInput ? (parseFloat(baseRateInput.value) || 0) : 0;
         let amountOut = 0;
-        let profit = 0;
         let resultText = '--';
-        let profitText = '';
 
-        if (baseRateFieldContainer) {
-            // Lógica para mostrar/ocultar el campo opcional de Tasa Base
-            if (operation === 'SELL_USD_FOR_BS' || operation === 'BUY_USD_FOR_BS') {
-                baseRateFieldContainer.style.display = 'block';
-            } else {
-                baseRateFieldContainer.style.display = 'none';
-            }
-        }
+        // Ocultar siempre el display de ganancia, ya que se calcula al cierre
+        profitDisplay.textContent = '';
 
-        // --- LÓGICA DE NEGOCIO CORREGIDA ---
         const operationConfigs = {
             'USDT_FOR_CASH': {
                 inLabel: "Doy (USDT)", rateLabel: "Comisión/Prima (%)", outTitle: "Recibo en Efectivo (USD)",
-                calculate: () => {
-                    profit = amountIn * (rateFee / 100);
-                    amountOut = amountIn + profit; // Recibo el monto + mi ganancia
-                    resultText = `$${amountOut.toFixed(2)}`;
-                    profitText = `Ganancia: $${profit.toFixed(2)}`;
-                }
+                calculate: () => { amountOut = amountIn + (amountIn * (rateFee / 100)); resultText = `$${amountOut.toFixed(2)}`; }
             },
             'CASH_FOR_USDT': {
                 inLabel: "Doy (Efectivo USD)", rateLabel: "Comisión/Prima (%)", outTitle: "Recibo en USDT",
-                calculate: () => {
-                    profit = amountIn * (rateFee / 100);
-                    amountOut = amountIn + profit; // Recibo el monto + mi ganancia
-                    resultText = `${amountOut.toFixed(2)} USDT`;
-                    profitText = `Ganancia: $${profit.toFixed(2)}`;
-                }
+                calculate: () => { amountOut = amountIn + (amountIn * (rateFee / 100)); resultText = `${amountOut.toFixed(2)} USDT`; }
             },
             'ZELLE_FOR_CASH': {
                 inLabel: "Doy (Zelle)", rateLabel: "Comisión/Prima (%)", outTitle: "Recibo en Efectivo (USD)",
-                calculate: () => {
-                    profit = amountIn * (rateFee / 100);
-                    amountOut = amountIn + profit; // Recibo el monto + mi ganancia
-                    resultText = `$${amountOut.toFixed(2)}`;
-                    profitText = `Ganancia: $${profit.toFixed(2)}`;
-                }
+                calculate: () => { amountOut = amountIn + (amountIn * (rateFee / 100)); resultText = `$${amountOut.toFixed(2)}`; }
             },
             'USDT_FOR_BS': {
                 inLabel: "Doy (USDT)", rateLabel: "Tasa (BS por USDT)", outTitle: "Recibo en Bolívares",
-                calculate: () => {
-                    amountOut = amountIn * rateFee;
-                    resultText = `${amountOut.toLocaleString('es-VE', {minimumFractionDigits: 2})} Bs.`;
-                }
+                calculate: () => { amountOut = amountIn * rateFee; resultText = `${amountOut.toLocaleString('es-VE', {minimumFractionDigits: 2})} Bs.`; }
             },
             'SELL_USD_FOR_BS': {
                 inLabel: "Vendo (USD Efectivo)", rateLabel: "Tasa de Venta (BS por USD)", outTitle: "Recibo en Bolívares",
-                calculate: () => {
-                    amountOut = amountIn * rateFee;
-                    resultText = `${amountOut.toLocaleString('es-VE', {minimumFractionDigits: 2})} Bs.`;
-                }
+                calculate: () => { amountOut = amountIn * rateFee; resultText = `${amountOut.toLocaleString('es-VE', {minimumFractionDigits: 2})} Bs.`; }
             },
             'BUY_USD_FOR_BS': {
                 inLabel: "Compro (USD Efectivo)", rateLabel: "Tasa de Compra (BS por USD)", outTitle: "Entrego en Bolívares",
-                calculate: () => {
-                    amountOut = amountIn * rateFee;
-                    resultText = `${amountOut.toLocaleString('es-VE', {minimumFractionDigits: 2})} Bs.`;
-                }
+                calculate: () => { amountOut = amountIn * rateFee; resultText = `${amountOut.toLocaleString('es-VE', {minimumFractionDigits: 2})} Bs.`; }
             }
         };
 
@@ -206,17 +170,13 @@ document.addEventListener("DOMContentLoaded", function() {
         }
         
         resultDisplay.textContent = resultText;
-        profitDisplay.textContent = profitText;
     }
 
     if (operationSelect) {
         operationSelect.addEventListener('change', updateFormUI);
         amountInInput.addEventListener('keyup', updateFormUI);
         rateFeeInput.addEventListener('keyup', updateFormUI);
-        if (baseRateInput) {
-            baseRateInput.addEventListener('keyup', updateFormUI);
-        }
-        updateFormUI();
+        updateFormUI(); // Llamada inicial
     }
 
     // ==========================================================

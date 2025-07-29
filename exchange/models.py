@@ -296,49 +296,43 @@ class AdvancedTransaction(models.Model):
     amount_in = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Monto de Entrada")
     rate_or_fee = models.DecimalField(max_digits=12, decimal_places=4, verbose_name="Tasa de Operación / Fee (%)")
     
-    amount_out = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name="Monto de Salida (Calculado)")
-    profit = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, default=0.00, verbose_name="Ganancia Directa (Comisión)")
-
+    # --- CAMPO RESTAURADO ---
+    base_rate = models.DecimalField(
+        max_digits=12, decimal_places=4, null=True, blank=True,
+        verbose_name="Tasa Base/Costo (Opcional)",
+        help_text="Para operaciones de tasa, introduce tu costo de referencia para calcular la ganancia."
+    )
+    
+    amount_out = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    profit = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, default=0.00)
     notes = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
-        # Aseguramos que los valores sean del tipo Decimal para precisión
-        self.rate_or_fee = Decimal(self.rate_or_fee) if self.rate_or_fee is not None else Decimal('0')
-        self.amount_in = Decimal(self.amount_in) if self.amount_in is not None else Decimal('0')
+        # Asegurar tipos Decimal
+        self.rate_or_fee = Decimal(self.rate_or_fee or '0')
+        self.amount_in = Decimal(self.amount_in or '0')
+        if self.base_rate is not None:
+            self.base_rate = Decimal(self.base_rate)
         
-        # --- LÓGICA DE CÁLCULO CORREGIDA SEGÚN NUEVO MODELO DE NEGOCIO ---
-        self.profit = Decimal('0.00')
-
-        # === OPERACIONES CON COMISIÓN/PRIMA ===
-        if self.operation_type == 'USDT_FOR_CASH':
-            # Doy USDT, recibo Efectivo + Comisión.
-            # amount_in = USDT que entrego.
-            # rate_or_fee = % de comisión que cobro.
-            self.profit = self.amount_in * (self.rate_or_fee / Decimal('100'))
-            self.amount_out = self.amount_in + self.profit # Recibo el equivalente en efectivo MÁS mi ganancia.
-        
-        elif self.operation_type == 'CASH_FOR_USDT':
-            # Doy Efectivo, recibo USDT + Comisión.
-            # amount_in = Efectivo que entrego.
-            # rate_or_fee = % de comisión que cobro.
-            self.profit = self.amount_in * (self.rate_or_fee / Decimal('100'))
-            self.amount_out = self.amount_in + self.profit # Recibo el equivalente en USDT MÁS mi ganancia.
-            
-        elif self.operation_type == 'ZELLE_FOR_CASH':
-            # Doy Zelle, recibo Efectivo + Comisión.
-            # amount_in = Zelle que entrego.
-            # rate_or_fee = % de comisión que cobro.
-            self.profit = self.amount_in * (self.rate_or_fee / Decimal('100'))
-            self.amount_out = self.amount_in + self.profit # Recibo el equivalente en efectivo MÁS mi ganancia.
-
-        # === OPERACIONES CON TASA DE CAMBIO ===
-        elif self.operation_type in ['SELL_USD_FOR_BS', 'BUY_USD_FOR_BS', 'USDT_FOR_BS']:
-            # La lógica aquí ya es correcta: Monto de Salida = Monto de Entrada * Tasa
+        # --- LÓGICA DE CÁLCULO DENTRO DEL MODELO ---
+        # 1. Calcular Monto de Salida (amount_out)
+        if self.operation_type in ['SELL_USD_FOR_BS', 'BUY_USD_FOR_BS', 'USDT_FOR_BS']:
             self.amount_out = self.amount_in * self.rate_or_fee
-            # La ganancia por spread se calcula en los reportes, no aquí.
-            self.profit = Decimal('0.00')
-
+        elif self.operation_type in ['USDT_FOR_CASH', 'CASH_FOR_USDT', 'ZELLE_FOR_CASH']:
+            commission = self.amount_in * (self.rate_or_fee / Decimal('100'))
+            self.amount_out = self.amount_in + commission
+        
+        # 2. Calcular Ganancia (profit) si es posible
+        self.profit = Decimal('0.00')
+        if self.operation_type in ['USDT_FOR_CASH', 'CASH_FOR_USDT', 'ZELLE_FOR_CASH']:
+            self.profit = self.amount_in * (self.rate_or_fee / Decimal('100'))
+        elif self.base_rate: # Solo si se proporciona una tasa base
+            if self.operation_type in ['SELL_USD_FOR_BS', 'USDT_FOR_BS']:
+                self.profit = (self.rate_or_fee - self.base_rate) * self.amount_in
+            elif self.operation_type == 'BUY_USD_FOR_BS':
+                self.profit = (self.base_rate - self.rate_or_fee) * self.amount_in
+        
         super().save(*args, **kwargs)
 
 
