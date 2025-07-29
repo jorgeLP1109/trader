@@ -1,0 +1,301 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="mb-0">{{ page_title }}</h1>
+            <small class="text-muted">Fecha: {{ worksheet.date|date:"d/m/Y" }} | Estado: <span class="fw-bold">{{ worksheet.get_status_display }}</span></small>
+        </div>
+        <div>
+            {% if worksheet.status == 'open' %}
+                <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#closeWorksheetModal">
+                    Cerrar Hoja de Trabajo
+                </button>
+            {% else %}
+                <form action="{% url 'reopen-worksheet' worksheet.id %}" method="post" class="d-inline" onsubmit="return confirm('¿Estás seguro de que quieres reabrir esta hoja de trabajo?');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-warning">Reabrir Hoja de Trabajo</button>
+                </form>
+            {% endif %}
+            <a href="{% url 'client-detail' client.pk %}" class="btn btn-secondary">Volver al Cliente</a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Columna de Formulario y Resumen -->
+        <div class="col-lg-4">
+            <div class="card shadow-sm sticky-top" style="top: 80px;">
+                <div class="card-header"><h5 class="mb-0">Añadir Operación</h5></div>
+                <div class="card-body">
+                    {% if worksheet.status == 'open' %}
+                    <form id="add-transaction-form" method="post" action="{% url 'add-transaction-to-worksheet-ajax' worksheet.id %}" data-url="{% url 'add-transaction-to-worksheet-ajax' worksheet.id %}">
+                        {% csrf_token %}
+                        {{ form|crispy }}
+                        <div class="alert alert-info mt-3" id="calculation-box">
+                            <h6 id="result-title">Resultado</h6>
+                            <p class="fs-5 mb-0" id="result-display">--</p>
+                            <p class="mb-0 small" id="profit-display"></p>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 mt-2">
+                            <i class="fas fa-plus-circle"></i> Añadir a la Hoja
+                        </button>
+                    </form>
+                    {% else %}
+                    <div class="alert alert-warning">Esta hoja de trabajo está cerrada y no se pueden añadir más operaciones.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Columna de Historial -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header"><h5 class="mb-0">Operaciones en esta Hoja</h5></div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-striped mb-0">
+                            <thead><tr><th>Hora</th><th>Operación</th><th>Entrada</th><th>Tasa/Fee</th><th>Salida</th><th>Estado</th></tr></thead>
+                            <tbody id="transactions-table-body">
+                                {% for tx in transactions %}
+                                    {% include 'exchange/partials/worksheet_transaction_row.html' %}
+                                {% empty %}
+                                    <tr id="no-transactions-row"><td colspan="6" class="text-center py-4">Aún no hay operaciones en esta hoja.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Cerrar Hoja de Trabajo -->
+<div class="modal fade" id="closeWorksheetModal" tabindex="-1" aria-labelledby="closeWorksheetModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="closeWorksheetModalLabel">Confirmar Cierre de Hoja de Trabajo</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form action="{% url 'close-worksheet' worksheet.id %}" method="post">
+          {% csrf_token %}
+          <div class="modal-body">
+            <p>Estás a punto de cerrar la hoja de trabajo.</p><hr>
+            <p>Para calcular la ganancia total en Bolívares, introduce la tasa de cambio de referencia para las ganancias obtenidas en Dólares/USDT.</p>
+            <div class="mb-3">
+                <label for="conversion_rate" class="form-label">Tasa de Conversión (BS por $1)</label>
+                <input type="number" step="0.01" name="conversion_rate" id="conversion_rate" class="form-control" placeholder="Ej: 125.50" required>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-danger">Confirmar y Cerrar Hoja</button>
+          </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+
+    // ==========================================================
+    // SECCIÓN 1: LÓGICA DEL FORMULARIO DE CÁLCULO DINÁMICO
+    // ==========================================================
+    const operationSelect = document.getElementById('id_operation_type');
+    const amountInInput = document.getElementById('id_amount_in');
+    const rateFeeInput = document.getElementById('id_rate_or_fee');
+    const baseRateInput = document.getElementById('id_base_rate'); // Puede no existir
+    
+    const amountInLabel = document.querySelector('label[for="id_amount_in"]');
+    const rateFeeLabel = document.querySelector('label[for="id_rate_or_fee"]');
+    const resultTitle = document.getElementById('result-title');
+    const resultDisplay = document.getElementById('result-display');
+    const profitDisplay = document.getElementById('profit-display');
+    const baseRateFieldContainer = document.getElementById('div_id_base_rate');
+
+    function updateFormUI() {
+        if (!operationSelect) return;
+
+        const operation = operationSelect.value;
+        const amountIn = parseFloat(amountInInput.value) || 0;
+        const rateFee = parseFloat(rateFeeInput.value) || 0;
+        const baseRate = baseRateInput ? (parseFloat(baseRateInput.value) || 0) : 0;
+        let amountOut = 0;
+        let profit = 0;
+        let resultText = '--';
+        let profitText = '';
+
+        if (baseRateFieldContainer) {
+            // Lógica para mostrar/ocultar el campo opcional de Tasa Base
+            if (operation === 'SELL_USD_FOR_BS' || operation === 'BUY_USD_FOR_BS') {
+                baseRateFieldContainer.style.display = 'block';
+            } else {
+                baseRateFieldContainer.style.display = 'none';
+            }
+        }
+
+        // --- LÓGICA DE NEGOCIO CORREGIDA ---
+        const operationConfigs = {
+            'USDT_FOR_CASH': {
+                inLabel: "Doy (USDT)", rateLabel: "Comisión/Prima (%)", outTitle: "Recibo en Efectivo (USD)",
+                calculate: () => {
+                    profit = amountIn * (rateFee / 100);
+                    amountOut = amountIn + profit; // Recibo el monto + mi ganancia
+                    resultText = `$${amountOut.toFixed(2)}`;
+                    profitText = `Ganancia: $${profit.toFixed(2)}`;
+                }
+            },
+            'CASH_FOR_USDT': {
+                inLabel: "Doy (Efectivo USD)", rateLabel: "Comisión/Prima (%)", outTitle: "Recibo en USDT",
+                calculate: () => {
+                    profit = amountIn * (rateFee / 100);
+                    amountOut = amountIn + profit; // Recibo el monto + mi ganancia
+                    resultText = `${amountOut.toFixed(2)} USDT`;
+                    profitText = `Ganancia: $${profit.toFixed(2)}`;
+                }
+            },
+            'ZELLE_FOR_CASH': {
+                inLabel: "Doy (Zelle)", rateLabel: "Comisión/Prima (%)", outTitle: "Recibo en Efectivo (USD)",
+                calculate: () => {
+                    profit = amountIn * (rateFee / 100);
+                    amountOut = amountIn + profit; // Recibo el monto + mi ganancia
+                    resultText = `$${amountOut.toFixed(2)}`;
+                    profitText = `Ganancia: $${profit.toFixed(2)}`;
+                }
+            },
+            'USDT_FOR_BS': {
+                inLabel: "Doy (USDT)", rateLabel: "Tasa (BS por USDT)", outTitle: "Recibo en Bolívares",
+                calculate: () => {
+                    amountOut = amountIn * rateFee;
+                    resultText = `${amountOut.toLocaleString('es-VE', {minimumFractionDigits: 2})} Bs.`;
+                }
+            },
+            'SELL_USD_FOR_BS': {
+                inLabel: "Vendo (USD Efectivo)", rateLabel: "Tasa de Venta (BS por USD)", outTitle: "Recibo en Bolívares",
+                calculate: () => {
+                    amountOut = amountIn * rateFee;
+                    resultText = `${amountOut.toLocaleString('es-VE', {minimumFractionDigits: 2})} Bs.`;
+                }
+            },
+            'BUY_USD_FOR_BS': {
+                inLabel: "Compro (USD Efectivo)", rateLabel: "Tasa de Compra (BS por USD)", outTitle: "Entrego en Bolívares",
+                calculate: () => {
+                    amountOut = amountIn * rateFee;
+                    resultText = `${amountOut.toLocaleString('es-VE', {minimumFractionDigits: 2})} Bs.`;
+                }
+            }
+        };
+
+        const config = operationConfigs[operation];
+        if (config) {
+            amountInLabel.textContent = config.inLabel;
+            rateFeeLabel.textContent = config.rateLabel;
+            resultTitle.textContent = config.outTitle;
+            config.calculate();
+        } else {
+            amountInLabel.textContent = "Monto de Entrada";
+            rateFeeLabel.textContent = "Tasa o Porcentaje";
+            resultTitle.textContent = "Resultado";
+        }
+        
+        resultDisplay.textContent = resultText;
+        profitDisplay.textContent = profitText;
+    }
+
+    if (operationSelect) {
+        operationSelect.addEventListener('change', updateFormUI);
+        amountInInput.addEventListener('keyup', updateFormUI);
+        rateFeeInput.addEventListener('keyup', updateFormUI);
+        if (baseRateInput) {
+            baseRateInput.addEventListener('keyup', updateFormUI);
+        }
+        updateFormUI();
+    }
+
+    // ==========================================================
+    // SECCIÓN 2: ENVÍO AJAX PARA AÑADIR OPERACIÓN
+    // ==========================================================
+    const addForm = document.getElementById('add-transaction-form');
+    if (addForm) {
+        addForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const url = this.dataset.url;
+            const formData = new FormData(this);
+            fetch(url, { method: 'POST', body: formData, headers: {'X-CSRFToken': formData.get('csrfmiddlewaretoken')} })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const tableBody = document.getElementById('transactions-table-body');
+                    tableBody.insertAdjacentHTML('afterbegin', data.new_row_html);
+                    const noTxRow = document.getElementById('no-transactions-row');
+                    if (noTxRow) noTxRow.remove();
+                    addForm.reset();
+                    updateFormUI();
+                } else {
+                    console.error('Error en el formulario:', data.errors);
+                    alert('Hubo un error al guardar la operación. Revisa los datos.');
+                }
+            });
+        });
+    }
+
+    // ==========================================================
+    // SECCIÓN 3: LÓGICA INTERACTIVA PARA CAMBIAR ESTADO
+    // ==========================================================
+    const tableBody = document.getElementById('transactions-table-body');
+    if(tableBody) {
+        function showSelect(cell) { const badge = cell.querySelector('.status-badge'); const select = cell.querySelector('.status-select'); if (badge && select) { badge.classList.add('d-none'); select.classList.remove('d-none'); select.focus(); }}
+        function showBadge(cell) { const badge = cell.querySelector('.status-badge'); const select = cell.querySelector('.status-select'); if (badge && select) { select.classList.add('d-none'); badge.classList.remove('d-none'); }}
+
+        tableBody.addEventListener('click', function(e) {
+            if (e.target && e.target.classList.contains('status-badge')) {
+                const cell = e.target.closest('.status-cell'); showSelect(cell);
+            }
+        });
+
+        tableBody.addEventListener('change', function(e) {
+            const select = e.target;
+            if (select && select.classList.contains('status-select')) {
+                const cell = select.closest('.status-cell');
+                const txId = cell.dataset.txId;
+                const newStatus = select.value;
+                const url = `/operations/${txId}/update-status/`;
+                const formData = new FormData();
+                formData.append('status', newStatus);
+                formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+                fetch(url, { method: 'POST', body: formData })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const badge = cell.querySelector('.status-badge');
+                        badge.textContent = data.new_status_text;
+                        badge.className = `badge ${data.new_status_class} status-badge`;
+                        cell.dataset.currentStatus = newStatus;
+                        showBadge(cell);
+                    } else {
+                        alert('Error al cambiar el estado: ' + (data.error || ''));
+                        select.value = cell.dataset.currentStatus;
+                        showBadge(cell);
+                    }
+                });
+            }
+        });
+
+        tableBody.addEventListener('blur', function(e) {
+            if (e.target && e.target.classList.contains('status-select')) {
+                const cell = e.target.closest('.status-cell');
+                e.target.value = cell.dataset.currentStatus;
+                showBadge(cell);
+            }
+        }, true);
+    }
+});
+</script>
+{% endblock %}

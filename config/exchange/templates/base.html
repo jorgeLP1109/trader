@@ -64,6 +64,15 @@
                             <!-- ENLACE ACTIVADO -->
                             <li><a class="dropdown-item" href="{% url 'report-general' %}">Reporte General de Operaciones</a></li>
                             <li><a class="dropdown-item" href="{% url 'report-by-client' %}">Reporte por Cliente</a></li>
+                            <li><a class="dropdown-item" href="{% url 'report-pending-transactions' %}">Reporte de Pendientes</a></li>
+                            <li><a class="dropdown-item" href="{% url 'report-profit' %}">Reporte de Ganancias</a></li>
+                        <!-- ENLACE NUEVO A LA ZONA DE PELIGRO -->
+                            {% if user.is_superuser %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-danger" href="{% url 'reset-data' %}">
+                                <i class="fas fa-bomb"></i> Resetear Datos
+                            </a></li>
+                            {% endif %}
                         </ul>
                     </li>
                 </ul>
@@ -91,7 +100,7 @@
             <div class="messages">
                 {% for message in messages %}
                     <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                        {{ message }}
+                        {{ message|safe }}
                         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
                 {% endfor %}

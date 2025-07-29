@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card border-danger shadow">
+                <div class="card-header bg-danger text-white">
+                    <h3 class="mb-0"><i class="fas fa-tools"></i> {{ page_title }}</h3>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <strong>¡Atención!</strong> Esta es una operación de emergencia. Cada ajuste quedará registrado permanentemente.
+                        <br>Para inyectar o corregir, usa un número positivo (ej: 100). Para retirar, usa un número negativo (ej: -50).
+                    </div>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        {{ form|crispy }}
+                        <div class="mt-4">
+                            <button type="submit" class="btn btn-danger">Confirmar y Aplicar Ajuste</button>
+                            <a href="{% url 'vault-management' %}" class="btn btn-secondary">Cancelar</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

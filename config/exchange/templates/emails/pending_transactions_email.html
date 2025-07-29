@@ -1,0 +1,56 @@
+{% comment %}
+Esta plantilla se usa tanto para la web como para el correo.
+La variable 'is_web_view' nos ayuda a decidir si incluir estilos o no.
+{% endcomment %}
+{% if not is_web_view %}
+<style>
+    body { font-family: sans-serif; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #dddddd; text-align: left; padding: 8px; }
+    th { background-color: #f2f2f2; }
+</style>
+{% endif %}
+
+<h3>Resumen de Operaciones Pendientes para el día {{ report_date|date:"d/m/Y" }}</h3>
+<p>A continuación se detallan las operaciones que requieren seguimiento:</p>
+
+<div {% if is_web_view %}class="table-responsive"{% endif %}>
+    <table {% if is_web_view %}class="table table-striped mb-0"{% endif %}>
+        <thead>
+            <tr>
+                <th>Cliente</th>
+                <th>Operación</th>
+                <th>Monto Pendiente</th>
+                <th>Acción Requerida</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for tx in transactions %}
+            <tr>
+                <td>{{ tx.client.name }}</td>
+                <td>{{ tx.get_operation_type_display }}</td>
+                <td>
+                    {% if tx.operation_type in "SELL_USD_FOR_BS,USDT_FOR_BS" %}
+                        {{ tx.amount_out|floatformat:2 }} BS
+                    {% else %}
+                        ${{ tx.amount_in|floatformat:2 }}
+                    {% endif %}
+                </td>
+                <td>
+                    {% if tx.operation_type in "SELL_USD_FOR_BS,USDT_FOR_BS" %}
+                        Recibir pago del cliente
+                    {% else %}
+                        Entregar dinero al cliente
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4" style="text-align: center; padding: 20px;">
+                    ¡Excelente! No hay operaciones pendientes para esta fecha.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
