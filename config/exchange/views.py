@@ -494,80 +494,70 @@ class DailySessionReportView(LoginRequiredMixin, AdminRequiredMixin, ListView):
 
 
 
+
 class GeneralReportView(LoginRequiredMixin, AdminRequiredMixin, View):
     template_name = 'exchange/general_report_advanced.html'
     
     def get(self, request, *args, **kwargs):
-        # ... (lógica de filtros de fecha y operación sin cambios) ...
+        # 1. Procesar Filtros
         today = timezone.localdate()
         start_date_str = request.GET.get('start_date', today.replace(day=1).strftime('%Y-%m-%d'))
         end_date_str = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
         operation_filter = request.GET.get('operation_type', '')
-
         start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
         end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
         
+        # 2. Queryset Base y Filtros
         transactions_qs = AdvancedTransaction.objects.filter(
-            status='completed',
-            created_at__date__gte=start_date,
-            created_at__date__lte=end_date
+            status='completed', created_at__date__gte=start_date, created_at__date__lte=end_date
         ).select_related('client', 'operator')
-
         if operation_filter:
             transactions_qs = transactions_qs.filter(operation_type=operation_filter)
 
-        # --- NUEVA LÓGICA DE RESUMEN CONTABLE ---
-        
-        # Ganancia directa por comisiones (en USD/USDT)
-        profit_from_fees = transactions_qs.filter(
-            operation_type__in=['USDT_FOR_CASH', 'CASH_FOR_USDT']
-        ).aggregate(total=Sum('profit'))['total'] or Decimal('0.00')
-        
-        # Ingresos en BS (por ventas de USD y USDT)
-        income_bs = transactions_qs.filter(
-            operation_type__in=['SELL_USD_FOR_BS', 'USDT_FOR_BS']
-        ).aggregate(total=Sum('amount_out'))['total'] or Decimal('0.00')
-        
-        # Costos en BS (por compras de USD)
-        cost_bs = transactions_qs.filter(
-            operation_type='BUY_USD_FOR_BS'
-        ).aggregate(total=Sum('amount_out'))['total'] or Decimal('0.00')
-        
-        # Ganancia NETA por Spread Cambiario (en BS)
-        profit_from_spread = income_bs - cost_bs
-        
-        # Para el resumen por tipo, la lógica anterior funciona bien
-        summary_by_type = list(transactions_qs
-            .values('operation_type')
-            .annotate(count=Count('id'), total_in=Sum('amount_in'), total_out=Sum('amount_out'), total_profit=Sum('profit'))
-            .order_by('operation_type')
+        # 3. Cálculos de Volumen
+        raw_volume = transactions_qs.aggregate(
+            usd_in_buy=Sum('amount_in', filter=Q(operation_type='BUY_USD_FOR_BS')),
+            usd_in_commission=Sum('amount_out', filter=Q(operation_type__in=['USDT_FOR_CASH', 'ZELLE_FOR_CASH'])),
+            usd_out_sell=Sum('amount_in', filter=Q(operation_type='SELL_USD_FOR_BS')),
+            usd_out_commission=Sum('amount_in', filter=Q(operation_type='CASH_FOR_USDT')),
+            bs_in=Sum('amount_out', filter=Q(operation_type__in=['SELL_USD_FOR_BS', 'USDT_FOR_BS'])),
+            bs_out=Sum('amount_out', filter=Q(operation_type='BUY_USD_FOR_BS')),
+            usdt_in=Sum('amount_out', filter=Q(operation_type='CASH_FOR_USDT')),
+            usdt_out=Sum('amount_in', filter=Q(operation_type__in=['USDT_FOR_CASH', 'USDT_FOR_BS'])),
+            zelle_out=Sum('amount_in', filter=Q(operation_type='ZELLE_FOR_CASH'))
         )
-        operation_names = dict(AdvancedTransaction.OPERATION_CHOICES)
-        for summary in summary_by_type:
-            summary['display_name'] = operation_names.get(summary['operation_type'])
+        volume = {
+            'usd_in': (raw_volume['usd_in_buy'] or 0) + (raw_volume['usd_in_commission'] or 0),
+            'usd_out': (raw_volume['usd_out_sell'] or 0) + (raw_volume['usd_out_commission'] or 0),
+            'bs_in': raw_volume['bs_in'] or 0, 'bs_out': raw_volume['bs_out'] or 0,
+            'usdt_in': raw_volume['usdt_in'] or 0, 'usdt_out': raw_volume['usdt_out'] or 0,
+            'zelle_out': raw_volume['zelle_out'] or 0
+        }
 
-        # --- CONTEXTO FINAL ---
-        paginator = Paginator(transactions_qs.order_by('-created_at'), 25)
-        page_number = request.GET.get('page')
-        page_obj = paginator.get_page(page_number)
+        # 4. Cálculos de Ganancia
+        profit_fees_usd = transactions_qs.filter(operation_type__in=['USDT_FOR_CASH', 'CASH_FOR_USDT', 'ZELLE_FOR_CASH']).aggregate(total=Sum('profit'))['total'] or Decimal('0.00')
+        profit_spread_bs = transactions_qs.filter(operation_type__in=['SELL_USD_FOR_BS', 'BUY_USD_FOR_BS', 'USDT_FOR_BS']).aggregate(total=Sum('profit'))['total'] or Decimal('0.00')
+        avg_rate_obj = transactions_qs.filter(operation_type__in=['SELL_USD_FOR_BS', 'BUY_USD_FOR_BS']).aggregate(avg=models.Avg('rate_or_fee'))
+        conversion_rate = avg_rate_obj.get('avg') or Decimal('1.0')
+        total_profit_in_bs = profit_spread_bs + (profit_fees_usd * conversion_rate)
+
+        # 5. Resumen por Tipo
+        summary_by_type = list(transactions_qs.values('operation_type').annotate(count=Count('id'), total_in=Sum('amount_in'), total_out=Sum('amount_out'), total_profit=Sum('profit')).order_by('operation_type'))
+        for summary in summary_by_type:
+            summary['display_name'] = dict(AdvancedTransaction.OPERATION_CHOICES).get(summary['operation_type'])
         
+        # 6. Paginación y Contexto
+        paginator = Paginator(transactions_qs.order_by('-created_at'), 25)
         context = {
             'page_title': 'Reporte General de Operaciones',
-            'transactions': page_obj,
-            'is_paginated': True,
-            'page_obj': page_obj,
-            'start_date': start_date,
-            'end_date': end_date,
-            'general_summary': { # Diccionario de resumen para las tarjetas
-                'total_transactions': transactions_qs.count(),
-                'profit_from_spread_bs': profit_from_spread,
-                'profit_from_fees_usd': profit_from_fees,
-            },
+            'transactions': paginator.get_page(request.GET.get('page')),
+            'is_paginated': True, 'page_obj': paginator.get_page(request.GET.get('page')),
+            'start_date': start_date, 'end_date': end_date,
+            'general_summary': {'total_transactions': transactions_qs.count(), 'profit_from_spread_bs': profit_spread_bs, 'profit_from_fees_usd': profit_fees_usd, 'total_profit_in_bs': total_profit_in_bs, 'volume': volume},
             'summary_by_type': summary_by_type,
             'operation_choices': AdvancedTransaction.OPERATION_CHOICES,
             'selected_operation': operation_filter,
         }
-        
         return render(request, self.template_name, context)
 
 
@@ -592,30 +582,50 @@ class ClientReportView(LoginRequiredMixin, AdminRequiredMixin, View):
             status='completed',
             created_at__date__gte=start_date,
             created_at__date__lte=end_date
-        ).select_related('client') # Optimización
+        ).select_related('client')
 
         if selected_client_id and selected_client_id.isdigit():
             transactions_qs = transactions_qs.filter(client_id=selected_client_id)
         
-        # --- 3. CÁLCULOS DE RESUMEN ---
-        summary_data = transactions_qs.aggregate(
-            total_transactions=Count('id'),
-            total_usd_bought=Sum('amount_in', filter=Q(operation_type='BUY_USD_FOR_BS')),
-            total_usd_sold=Sum('amount_in', filter=Q(operation_type='SELL_USD_FOR_BS'))
+        # --- 3. CÁLCULOS DE VOLUMEN (LÓGICA COMPLETA AÑADIDA) ---
+        raw_volume = transactions_qs.aggregate(
+            usd_in_buy=Sum('amount_in', filter=Q(operation_type='BUY_USD_FOR_BS')),
+            usd_in_commission=Sum('amount_out', filter=Q(operation_type__in=['USDT_FOR_CASH', 'ZELLE_FOR_CASH'])),
+            usd_out_sell=Sum('amount_in', filter=Q(operation_type='SELL_USD_FOR_BS')),
+            usd_out_commission=Sum('amount_in', filter=Q(operation_type='CASH_FOR_USDT')),
+            bs_in=Sum('amount_out', filter=Q(operation_type__in=['SELL_USD_FOR_BS', 'USDT_FOR_BS'])),
+            bs_out=Sum('amount_out', filter=Q(operation_type='BUY_USD_FOR_BS')),
+            usdt_in=Sum('amount_out', filter=Q(operation_type='CASH_FOR_USDT')),
+            usdt_out=Sum('amount_in', filter=Q(operation_type__in=['USDT_FOR_CASH', 'USDT_FOR_BS'])),
+            zelle_out=Sum('amount_in', filter=Q(operation_type='ZELLE_FOR_CASH'))
         )
-        
-        summary = {
-            'total_transactions': summary_data.get('total_transactions') or 0,
-            'total_usd_bought': summary_data.get('total_usd_bought') or 0.00,
-            'total_usd_sold': summary_data.get('total_usd_sold') or 0.00,
+        volume = {
+            'usd_in': (raw_volume['usd_in_buy'] or 0) + (raw_volume['usd_in_commission'] or 0),
+            'usd_out': (raw_volume['usd_out_sell'] or 0) + (raw_volume['usd_out_commission'] or 0),
+            'bs_in': raw_volume['bs_in'] or 0, 'bs_out': raw_volume['bs_out'] or 0,
+            'usdt_in': raw_volume['usdt_in'] or 0, 'usdt_out': raw_volume['usdt_out'] or 0,
+            'zelle_out': raw_volume['zelle_out'] or 0
         }
 
-        # --- 4. PAGINACIÓN ---
+        # --- 4. CÁLCULOS DE GANANCIA (LÓGICA COMPLETA AÑADIDA) ---
+        profit_from_fees_usd = transactions_qs.filter(operation_type__in=['USDT_FOR_CASH', 'CASH_FOR_USDT', 'ZELLE_FOR_CASH']).aggregate(total=Sum('profit'))['total'] or Decimal('0.00')
+        profit_from_spread_bs = transactions_qs.filter(operation_type__in=['SELL_USD_FOR_BS', 'BUY_USD_FOR_BS', 'USDT_FOR_BS']).aggregate(total=Sum('profit'))['total'] or Decimal('0.00')
+        avg_rate_obj = transactions_qs.filter(operation_type__in=['SELL_USD_FOR_BS', 'BUY_USD_FOR_BS']).aggregate(avg=models.Avg('rate_or_fee'))
+        conversion_rate = avg_rate_obj.get('avg') or Decimal('1.0')
+        total_profit_in_bs = profit_from_spread_bs + (profit_from_fees_usd * conversion_rate)
+
+        summary = {
+            'total_transactions': transactions_qs.count(),
+            'total_profit_in_bs': total_profit_in_bs,
+            'volume': volume
+        }
+
+        # --- 5. PAGINACIÓN ---
         paginator = Paginator(transactions_qs.order_by('-created_at'), 25)
         page_number = request.GET.get('page')
         page_obj = paginator.get_page(page_number)
 
-        # --- 5. CONTEXTO ---
+        # --- 6. CONTEXTO FINAL ---
         context = {
             'page_title': 'Reporte por Cliente',
             'transactions': page_obj,
@@ -648,30 +658,35 @@ class SessionManagementView(LoginRequiredMixin, AdminVerifiedMixin, View):
     
 
 class AdvancedTransactionCreateView(LoginRequiredMixin, CreateView):
-    # ...
+    model = AdvancedTransaction
+    form_class = AdvancedTransactionForm
+    template_name = 'exchange/advanced_transaction_form.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        client = get_object_or_404(Client, pk=self.kwargs['client_pk'])
+        context['page_title'] = f"Nueva Operación Individual para {client.name}"
+        context['cancel_url'] = reverse_lazy('client-detail', kwargs={'pk': client.pk})
+        return context
+
     def form_valid(self, form):
+        # 1. Obtenemos el objeto sin guardarlo en la BD
         self.object = form.save(commit=False)
+        
+        # 2. Asignamos los datos que no vienen del formulario
         self.object.client = get_object_or_404(Client, pk=self.kwargs['client_pk'])
         self.object.operator = self.request.user
         
-        # --- CÁLCULO DE amount_out SE HACE AQUÍ ---
-        tx = self.object
-        rate_or_fee = Decimal(tx.rate_or_fee)
-        amount_in = Decimal(tx.amount_in)
-        
-        if tx.operation_type in ['SELL_USD_FOR_BS', 'BUY_USD_FOR_BS', 'USDT_FOR_BS']:
-            tx.amount_out = amount_in * rate_or_fee
-        elif tx.operation_type in ['USDT_FOR_CASH', 'CASH_FOR_USDT', 'ZELLE_FOR_CASH']:
-            commission = amount_in * (rate_or_fee / Decimal('100'))
-            tx.amount_out = amount_in + commission # Tu lógica de prima
-        
+        # 3. Guardamos. El método save() del modelo se encargará de los cálculos
+        #    basados en la Tasa de Costo si se proveyó.
         self.object.save()
+        
+        messages.success(self.request, "Operación individual registrada exitosamente.")
+        # La llamada a super() se encarga de la redirección
         return super().form_valid(form)
-    
 
     def get_success_url(self):
         # Volvemos al detalle del cliente después de crear la transacción.
-        messages.success(self.request, "Operación registrada exitosamente.")
         return reverse_lazy('client-detail', kwargs={'pk': self.kwargs['client_pk']})
 # ==============================================================================
 # VISTAS DE GESTIÓN DE BÓVEDAS (CAJAS)
@@ -825,22 +840,13 @@ class AdvancedTransactionCancelView(LoginRequiredMixin, AdminVerifiedMixin, Upda
     context_object_name = 'transaction'
 
     def form_valid(self, form):
-        """
-        Cuando el formulario (en este caso, un simple botón de confirmación) es enviado,
-        cambiamos el estado a 'cancelled'.
-        """
-        transaction = self.get_object()
+        self.object = form.save(commit=False)
+        self.object.client = get_object_or_404(Client, pk=self.kwargs['client_pk'])
+        self.object.operator = self.request.user
+        # Ya no calculamos nada aquí, el modelo lo hará solo
+        self.object.save()
+        return super().form_valid(form)
         
-        # Verificamos que la transacción no esté ya completada para evitar problemas contables
-        if transaction.status == 'completed':
-            messages.error(self.request, "No se puede anular una operación que ya ha sido completada.")
-            return redirect('client-detail', pk=transaction.client.pk)
-
-        transaction.status = 'cancelled'
-        transaction.save(update_fields=['status']) # Guardamos solo el campo de estado
-        
-        messages.success(self.request, f"Operación #{transaction.id} anulada exitosamente.")
-        return redirect(self.get_success_url())
 
     def get_success_url(self):
         # Volvemos al detalle del cliente
@@ -1004,43 +1010,30 @@ class WorkSheetView(LoginRequiredMixin, View):
 
 @login_required
 def add_transaction_to_worksheet_ajax(request, worksheet_id):
-    """
-    Procesa la adición de una nueva transacción a la hoja de trabajo vía AJAX.
-    """
     worksheet = get_object_or_404(ClientWorkSheet, pk=worksheet_id)
-    if request.method == 'POST' and worksheet.status == 'open':
-        form = AdvancedTransactionForm(request.POST)
-        if form.is_valid():
-            # Creamos la transacción pero no la guardamos en la BD aún
-            transaction = form.save(commit=False)
-            transaction.client = worksheet.client
-            transaction.operator = request.user
-            transaction.worksheet = worksheet
-            # El método save() del modelo se encarga de los cálculos
-            transaction.save()
+    if request.method != 'POST' or worksheet.status != 'open':
+        return JsonResponse({'success': False, 'error': 'Invalid request'})
 
-            # Preparamos la respuesta JSON
-            # Renderizamos la nueva fila de la tabla como un string HTML
-            new_row_html = render_to_string(
-                'exchange/partials/worksheet_transaction_row.html', 
-                {'tx': transaction}
-            )
-            # Obtenemos el resumen actualizado
-            summary = worksheet.transactions.aggregate(
-                total_in=Sum('amount_in'), total_out=Sum('amount_out')
-            )
+    form = AdvancedTransactionForm(request.POST)
+    if form.is_valid():
+        tx = form.save(commit=False)
+        tx.client = worksheet.client
+        tx.operator = request.user
+        tx.worksheet = worksheet
+        
+        # Guardamos la transacción. El método save() del modelo se encarga de los cálculos
+        # de amount_out y de profit (si hay tasa base).
+        tx.save()
 
-            return JsonResponse({
-                'success': True, 
-                'new_row_html': new_row_html,
-                'summary': {
-                    'total_in': summary.get('total_in') or 0,
-                    'total_out': summary.get('total_out') or 0,
-                }
-            })
-        else:
-            return JsonResponse({'success': False, 'errors': form.errors})
-    return JsonResponse({'success': False, 'error': 'Invalid request'})
+        # Preparamos la respuesta JSON para actualizar la tabla dinámicamente
+        new_row_html = render_to_string('exchange/partials/worksheet_transaction_row.html', {'tx': tx})
+        
+        return JsonResponse({
+            'success': True, 
+            'new_row_html': new_row_html
+        })
+    else:
+        return JsonResponse({'success': False, 'errors': form.errors})
 
 # exchange/views.py
 
@@ -1067,9 +1060,10 @@ def close_worksheet(request, worksheet_id):
                 amount_in = Decimal(tx.amount_in)
                 
                 # Cálculo de ganancia por comisión (en USD/USDT)
-                if tx.operation_type in ['USDT_FOR_CASH', 'CASH_FOR_USDT', 'ZELLE_FOR_CASH']:
+                if tx.operation_type in ['SELL_USD_FOR_BS', 'BUY_USD_FOR_BS', 'USDT_FOR_BS']:
                     tx.profit = amount_in * (rate_or_fee / Decimal('100'))
                     total_profit_usd_fees += tx.profit
+                    tx.save(update_fields=['profit'])
                 
                 # Cálculo de ganancia por spread (en BS)
                 elif tx.operation_type == 'SELL_USD_FOR_BS' or tx.operation_type == 'USDT_FOR_BS':
