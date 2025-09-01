@@ -293,8 +293,13 @@ class AdvancedTransaction(models.Model):
     operation_type = models.CharField(max_length=20, choices=OPERATION_CHOICES)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
     
-    amount_in = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Monto de Entrada")
+    # NUEVA LÓGICA: amount_primary = monto principal de la operación (lo que se está operando)
+    amount_primary = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Monto Principal de la Operación")
     rate_or_fee = models.DecimalField(max_digits=12, decimal_places=4, verbose_name="Tasa de Operación / Fee (%)")
+    
+    # Los campos calculados: lo que ENTRA y lo que SALE del inventario
+    amount_in = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name="Monto que Recibes (Entrada)")
+    amount_out = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name="Monto que Das (Salida)")
     
     # --- CAMPO RESTAURADO ---
     base_rate = models.DecimalField(
@@ -303,37 +308,187 @@ class AdvancedTransaction(models.Model):
         help_text="Para operaciones de tasa, introduce tu costo de referencia para calcular la ganancia."
     )
     
-    amount_out = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    # Campo original (mantenido por compatibilidad)
     profit = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, default=0.00)
+    
+    # Campos de ganancia mejorados
+    profit_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Ganancia (Monto)")
+    profit_currency = models.CharField(max_length=5, default='USD', verbose_name="Moneda de Ganancia")
+    profit_usd_equivalent = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Ganancia en USD")
+    profit_bs_equivalent = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Ganancia en BS")
+    usd_bs_rate_used = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True, verbose_name="Tasa USD/BS utilizada")
+    
     notes = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    def get_current_usd_bs_rate(self):
+        """Obtiene la tasa USD/BS actual para conversiones."""
+        # Implementación simple - puedes mejorar esto obteniendo de una API
+        try:
+            # Buscar la última transacción que tenga una tasa USD/BS
+            last_rate_transaction = AdvancedTransaction.objects.filter(
+                operation_type__in=['SELL_USD_FOR_BS', 'BUY_USD_FOR_BS'],
+                rate_or_fee__gt=0
+            ).order_by('-created_at').first()
+            
+            if last_rate_transaction:
+                return last_rate_transaction.rate_or_fee
+        except:
+            pass
+        
+        # Tasa por defecto si no hay datos
+        return Decimal('36.50')
+    
+    def calculate_improved_profit(self):
+        """Calcula ganancias con el sistema mejorado."""
+        # Asegurar tipos Decimal
+        rate_or_fee = Decimal(str(self.rate_or_fee or '0'))
+        amount_primary = Decimal(str(self.amount_primary or '0'))
+        base_rate = Decimal(str(self.base_rate or '0')) if self.base_rate else None
+        
+        profit_amount = Decimal('0.00')
+        profit_currency = 'USD'
+        
+        # Calcular ganancia según tipo de operación
+        if self.operation_type in ['USDT_FOR_CASH', 'CASH_FOR_USDT', 'ZELLE_FOR_CASH']:
+            # Para operaciones de comisión: la ganancia es el porcentaje del monto principal
+            # Ejemplo: 100 USDT con 15% comisión = ganancia de 15 USD
+            profit_amount = amount_primary * (rate_or_fee / Decimal('100'))
+            profit_currency = 'USD'
+            
+        elif self.operation_type in ['SELL_USD_FOR_BS', 'BUY_USD_FOR_BS']:
+            if base_rate:
+                # CON TASA BASE: ganancia = diferencia de tasas * monto en USD
+                if self.operation_type == 'SELL_USD_FOR_BS':
+                    # Venta: ganancia = (tasa_venta - tasa_costo) * monto_USD
+                    # Ejemplo: (150 - 133) * 1000 = 17,000 Bs
+                    profit_amount = (rate_or_fee - base_rate) * amount_primary
+                    profit_currency = 'BS'
+                elif self.operation_type == 'BUY_USD_FOR_BS':
+                    # Compra: ganancia = (tasa_costo - tasa_compra) * monto_USD
+                    profit_amount = (base_rate - rate_or_fee) * amount_primary
+                    profit_currency = 'BS'
+            else:
+                # SIN TASA BASE: usar márgenes estándar conservadores
+                if self.operation_type == 'SELL_USD_FOR_BS':
+                    # Margen estándar del 1% en ventas (más conservador)
+                    margin_bs = rate_or_fee * Decimal('0.01')
+                    profit_amount = margin_bs * amount_primary
+                    profit_currency = 'BS'
+                elif self.operation_type == 'BUY_USD_FOR_BS':
+                    # Margen estándar del 1% en compras
+                    margin_bs = rate_or_fee * Decimal('0.01')
+                    profit_amount = margin_bs * amount_primary
+                    profit_currency = 'BS'
+                    
+        elif self.operation_type == 'USDT_FOR_BS':
+            if base_rate:
+                # CON TASA BASE: ganancia = (tasa_venta - tasa_costo) * monto_USDT
+                profit_amount = (rate_or_fee - base_rate) * amount_primary
+                profit_currency = 'BS'
+            else:
+                # SIN TASA BASE: margen estándar del 1% en USDT
+                margin_bs = rate_or_fee * Decimal('0.01')
+                profit_amount = margin_bs * amount_primary
+                profit_currency = 'BS'
+        
+        # Obtener tasa actual para conversiones (usar la tasa base si existe)
+        current_usd_bs_rate = base_rate if base_rate else self.get_current_usd_bs_rate()
+        
+        # Calcular equivalencias
+        if profit_currency == 'USD':
+            profit_usd_equivalent = profit_amount
+            profit_bs_equivalent = profit_amount * current_usd_bs_rate
+        else:  # profit_currency == 'BS'
+            profit_usd_equivalent = profit_amount / current_usd_bs_rate
+            profit_bs_equivalent = profit_amount
+        
+        return {
+            'profit_amount': profit_amount,
+            'profit_currency': profit_currency,
+            'profit_usd_equivalent': profit_usd_equivalent,
+            'profit_bs_equivalent': profit_bs_equivalent,
+            'usd_bs_rate_used': current_usd_bs_rate
+        }
+    
     def save(self, *args, **kwargs):
         # Asegurar tipos Decimal
-        self.rate_or_fee = Decimal(self.rate_or_fee or '0')
-        self.amount_in = Decimal(self.amount_in or '0')
+        self.rate_or_fee = Decimal(str(self.rate_or_fee or '0'))
+        self.amount_primary = Decimal(str(self.amount_primary or '0'))
         if self.base_rate is not None:
-            self.base_rate = Decimal(self.base_rate)
+            self.base_rate = Decimal(str(self.base_rate))
         
-        # --- LÓGICA DE CÁLCULO DENTRO DEL MODELO ---
-        # 1. Calcular Monto de Salida (amount_out)
-        if self.operation_type in ['SELL_USD_FOR_BS', 'BUY_USD_FOR_BS', 'USDT_FOR_BS']:
-            self.amount_out = self.amount_in * self.rate_or_fee
-        elif self.operation_type in ['USDT_FOR_CASH', 'CASH_FOR_USDT', 'ZELLE_FOR_CASH']:
-            commission = self.amount_in * (self.rate_or_fee / Decimal('100'))
-            self.amount_out = self.amount_in + commission
+        # --- NUEVA LÓGICA CORREGIDA: ENTRADA vs SALIDA ---
+        # Lógica: amount_in = lo que RECIBES, amount_out = lo que DAS
         
-        # 2. Calcular Ganancia (profit) si es posible
+        if self.operation_type == 'SELL_USD_FOR_BS':
+            # Vendes USD, recibes BS
+            self.amount_out = self.amount_primary  # Das USD (amount_primary)
+            self.amount_in = self.amount_primary * self.rate_or_fee  # Recibes BS
+            
+        elif self.operation_type == 'BUY_USD_FOR_BS':
+            # Compras USD, das BS
+            self.amount_in = self.amount_primary  # Recibes USD (amount_primary)
+            self.amount_out = self.amount_primary * self.rate_or_fee  # Das BS
+            
+        elif self.operation_type == 'USDT_FOR_CASH':
+            # Das USDT, recibes USD efectivo (con comisión)
+            self.amount_out = self.amount_primary  # Das USDT
+            commission = self.amount_primary * (self.rate_or_fee / Decimal('100'))
+            self.amount_in = self.amount_primary + commission  # Recibes USD + comisión
+            
+        elif self.operation_type == 'CASH_FOR_USDT':
+            # Das USD efectivo, recibes USDT (con comisión)
+            self.amount_out = self.amount_primary  # Das USD efectivo
+            commission = self.amount_primary * (self.rate_or_fee / Decimal('100'))
+            self.amount_in = self.amount_primary + commission  # Recibes USDT + comisión
+            
+        elif self.operation_type == 'USDT_FOR_BS':
+            # Das USDT, recibes BS
+            self.amount_out = self.amount_primary  # Das USDT
+            self.amount_in = self.amount_primary * self.rate_or_fee  # Recibes BS
+            
+        elif self.operation_type == 'ZELLE_FOR_CASH':
+            # Das Zelle, recibes USD efectivo (con comisión)
+            self.amount_out = self.amount_primary  # Das Zelle
+            commission = self.amount_primary * (self.rate_or_fee / Decimal('100'))
+            self.amount_in = self.amount_primary + commission  # Recibes USD + comisión
+        
+        # 2. Calcular Ganancia (profit) - sistema legacy (compatible con amount_primary)
         self.profit = Decimal('0.00')
         if self.operation_type in ['USDT_FOR_CASH', 'CASH_FOR_USDT', 'ZELLE_FOR_CASH']:
-            self.profit = self.amount_in * (self.rate_or_fee / Decimal('100'))
+            self.profit = self.amount_primary * (self.rate_or_fee / Decimal('100'))
         elif self.base_rate: # Solo si se proporciona una tasa base
             if self.operation_type in ['SELL_USD_FOR_BS', 'USDT_FOR_BS']:
-                self.profit = (self.rate_or_fee - self.base_rate) * self.amount_in
+                self.profit = (self.rate_or_fee - self.base_rate) * self.amount_primary
             elif self.operation_type == 'BUY_USD_FOR_BS':
-                self.profit = (self.base_rate - self.rate_or_fee) * self.amount_in
+                self.profit = (self.base_rate - self.rate_or_fee) * self.amount_primary
+        
+        # 3. Calcular ganancias mejoradas
+        improved_profit = self.calculate_improved_profit()
+        self.profit_amount = improved_profit['profit_amount']
+        self.profit_currency = improved_profit['profit_currency']
+        self.profit_usd_equivalent = improved_profit['profit_usd_equivalent']
+        self.profit_bs_equivalent = improved_profit['profit_bs_equivalent']
+        self.usd_bs_rate_used = improved_profit['usd_bs_rate_used']
         
         super().save(*args, **kwargs)
+    
+    def get_profit_display(self):
+        """Retorna una representación amigable de la ganancia."""
+        if self.profit_amount == 0:
+            return "Sin ganancia calculada"
+        
+        if self.profit_currency == 'USD':
+            return f"${self.profit_amount:,.2f} USD (Bs {self.profit_bs_equivalent:,.2f})"
+        else:
+            return f"Bs {self.profit_amount:,.2f} (${self.profit_usd_equivalent:,.2f} USD)"
+    
+    def __str__(self):
+        return f"#{self.id} - {self.client.name} - {self.get_operation_type_display()}"
+    
+    class Meta:
+        ordering = ['-created_at']
 
 
 

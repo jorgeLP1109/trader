@@ -66,6 +66,10 @@
                             <li><a class="dropdown-item" href="{% url 'report-by-client' %}">Reporte por Cliente</a></li>
                             <li><a class="dropdown-item" href="{% url 'report-pending-transactions' %}">Reporte de Pendientes</a></li>
                             <li><a class="dropdown-item" href="{% url 'report-profit' %}">Reporte de Ganancias</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <!-- NUEVOS REPORTES MEJORADOS -->
+                            <li><a class="dropdown-item" href="{% url 'report-profit-loss' %}"><i class="fas fa-chart-line"></i> Análisis de Ganancias y Pérdidas</a></li>
+                            <li><a class="dropdown-item" href="{% url 'report-transactions-by-client' %}"><i class="fas fa-users"></i> Transacciones por Cliente</a></li>
                         <!-- ENLACE NUEVO A LA ZONA DE PELIGRO -->
                             {% if user.is_superuser %}
                             <li><hr class="dropdown-divider"></li>

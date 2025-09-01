@@ -26,12 +26,19 @@ from .views import (
     
     # Vistas de Administración y Seguridad
     AdminPasswordVerifyView,
-    ResetDataView, # <--- ¡Asegurándose de que esté aquí!
+    ResetDataView,
     
     # Vistas de API para gráficos
     exchange_volume_chart_data,
     operation_composition_chart_data,
     monthly_flow_chart_data
+)
+
+# Importar nuevas vistas de reportes optimizados
+from .views_reports import (
+    ProfitLossReportView,
+    TransactionsByClientReportView,
+    DashboardMetricsAPIView
 )
 
 urlpatterns = [
@@ -72,6 +79,10 @@ urlpatterns = [
     path('reports/pending/', PendingTransactionsReportView.as_view(), name='report-pending-transactions'),
     path('reports/profit/', ProfitReportView.as_view(), name='report-profit'),
     
+    # Nuevos Reportes Optimizados
+    path('reports/profit-loss/', ProfitLossReportView.as_view(), name='report-profit-loss'),
+    path('reports/transactions-by-client/', TransactionsByClientReportView.as_view(), name='report-transactions-by-client'),
+    
     # Exportación
     path('export/general-report/', export_general_report_csv, name='export-general-report'),
 
@@ -83,4 +94,5 @@ urlpatterns = [
     path('api/chart-data/volume/', exchange_volume_chart_data, name='chart-volume-data'),
     path('api/chart-data/composition/', operation_composition_chart_data, name='chart-composition-data'),
     path('api/chart-data/flow/', monthly_flow_chart_data, name='chart-flow-data'),
+    path('api/dashboard-metrics/', DashboardMetricsAPIView.as_view(), name='dashboard-metrics'),
 ]

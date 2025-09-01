@@ -92,13 +92,19 @@
                                 </small>
                             </td>
                             
-                            <!-- Columna de Monto Ganancia -->
-                            <td class="text-end fw-bold {% if tx.profit > 0 %}text-success{% elif tx.profit < 0 %}text-danger{% endif %}">
-                                {% if 'USD_FOR_BS' in tx.operation_type or 'USDT_FOR_BS' in tx.operation_type %}
-                                    {{ tx.profit|floatformat:2 }} Bs.
-                                {% else %}
-                                    ${{ tx.profit|floatformat:2 }}
-                                {% endif %}
+                            <!-- Columna de Monto Ganancia con equivalencias -->
+                            <td class="text-end fw-bold {% if tx.profit_usd_equivalent > 0 or tx.profit_bs_equivalent > 0 %}text-success{% elif tx.profit_usd_equivalent < 0 or tx.profit_bs_equivalent < 0 %}text-danger{% endif %}">
+                                <div class="d-flex flex-column align-items-end">
+                                    {% if tx.profit_usd_equivalent > 0 %}
+                                        <small class="text-primary">${{ tx.profit_usd_equivalent|floatformat:2 }}</small>
+                                    {% endif %}
+                                    {% if tx.profit_bs_equivalent > 0 %}
+                                        <small class="text-success">{{ tx.profit_bs_equivalent|floatformat:2 }} Bs.</small>
+                                    {% endif %}
+                                    {% if tx.profit_usd_equivalent <= 0 and tx.profit_bs_equivalent <= 0 %}
+                                        <small class="text-muted">Sin ganancia</small>
+                                    {% endif %}
+                                </div>
                             </td>
                         </tr>
                         {% empty %}

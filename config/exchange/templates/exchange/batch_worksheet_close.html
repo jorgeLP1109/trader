@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Encabezado -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="mb-0">{{ page_title }}</h1>
+            <small class="text-muted">Cierre y gestión de múltiples hojas de trabajo</small>
+        </div>
+        <a href="{% url 'dashboard' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Volver al Dashboard
+        </a>
+    </div>
+
+    <!-- Resumen de hojas abiertas -->
+    {% if total_open_worksheets > 0 %}
+    <div class="row mb-4">
+        <div class="col-lg-12">
+            <div class="card border-primary">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-clipboard-list"></i> Hojas de Trabajo Abiertas ({{ total_open_worksheets }})</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="batch-close-form">
+                        {% csrf_token %}
+                        
+                        <!-- Campo de tasa de conversión -->
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label for="conversion_rate" class="form-label"><strong>Tasa de Conversión Base (BS por $1):</strong></label>
+                                <input type="number" step="0.01" name="conversion_rate" id="conversion_rate" 
+                                       class="form-control" placeholder="Ej: 125.50" required>
+                                <small class="form-text text-muted">Esta tasa se aplicará a todas las hojas seleccionadas</small>
+                            </div>
+                            <div class="col-md-8 d-flex align-items-end">
+                                <button type="submit" class="btn btn-danger me-2" id="batch-close-btn" disabled>
+                                    <i class="fas fa-times-circle"></i> Cerrar Hojas Seleccionadas
+                                </button>
+                                <button type="button" class="btn btn-info" id="select-all-btn">
+                                    <i class="fas fa-check-square"></i> Seleccionar Todo
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary ms-2" id="clear-all-btn">
+                                    <i class="fas fa-square"></i> Limpiar Selección
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Lista de hojas de trabajo agrupadas por fecha -->
+                        {% for date_group in worksheets_grouped %}
+                        <div class="mb-4">
+                            <h6 class="bg-light p-2 rounded">
+                                <i class="fas fa-calendar-day"></i> {{ date_group.date_display }} 
+                                <span class="badge bg-secondary">{{ date_group.count }} hojas</span>
+                                <div class="form-check form-check-inline float-end">
+                                    <input class="form-check-input date-group-checkbox" type="checkbox" 
+                                           data-date="{{ date_group.date }}">
+                                    <label class="form-check-label">
+                                        Seleccionar fecha completa
+                                    </label>
+                                </div>
+                            </h6>
+                            
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th width="50">
+                                                <input type="checkbox" class="form-check-input date-select-all" 
+                                                       data-date="{{ date_group.date }}">
+                                            </th>
+                                            <th>Cliente</th>
+                                            <th>Transacciones</th>
+                                            <th>Última Actualización</th>
+                                            <th>Estado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for worksheet in date_group.worksheets %}
+                                        <tr class="worksheet-row" data-date="{{ date_group.date }}">
+                                            <td>
+                                                <input type="checkbox" name="selected_worksheets" 
+                                                       value="{{ worksheet.id }}" class="form-check-input worksheet-checkbox"
+                                                       data-date="{{ date_group.date }}">
+                                            </td>
+                                            <td>
+                                                <strong>{{ worksheet.client.name }}</strong><br>
+                                                <small class="text-muted">ID: {{ worksheet.id }}</small>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-info">{{ worksheet.transactions.count }} ops</span>
+                                            </td>
+                                            <td>
+                                                <small>{{ worksheet.created_at|date:"d/m/Y H:i" }}</small>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-warning text-dark">{{ worksheet.get_status_display }}</span>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="alert alert-info text-center">
+                <i class="fas fa-info-circle fa-2x mb-3"></i>
+                <h4>No hay hojas de trabajo abiertas</h4>
+                <p class="mb-0">Todas las hojas de trabajo han sido cerradas o no existen hojas pendientes.</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Sección de reapertura rápida (solo muestra hojas cerradas hoy) -->
+    <div class="row mt-4">
+        <div class="col-lg-12">
+            <div class="card border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="fas fa-undo"></i> Reapertura de Hojas (Solo hoy)</h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-3">Las hojas cerradas hoy pueden ser reabiertas si es necesario:</p>
+                    <form method="post" action="{% url 'batch-reopen-worksheets' %}" id="reopen-form">
+                        {% csrf_token %}
+                        <button type="button" class="btn btn-warning" onclick="window.location.reload()">
+                            <i class="fas fa-search"></i> Buscar Hojas Cerradas Hoy
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const batchCloseBtn = document.getElementById('batch-close-btn');
+    const conversionRateInput = document.getElementById('conversion_rate');
+    const selectAllBtn = document.getElementById('select-all-btn');
+    const clearAllBtn = document.getElementById('clear-all-btn');
+    const worksheetCheckboxes = document.querySelectorAll('.worksheet-checkbox');
+    const dateGroupCheckboxes = document.querySelectorAll('.date-group-checkbox');
+    const dateSelectAlls = document.querySelectorAll('.date-select-all');
+    const batchForm = document.getElementById('batch-close-form');
+
+    // Función para actualizar el estado del botón de cierre
+    function updateCloseButton() {
+        const anyChecked = Array.from(worksheetCheckboxes).some(cb => cb.checked);
+        const hasValidRate = conversionRateInput.value && parseFloat(conversionRateInput.value) > 0;
+        batchCloseBtn.disabled = !anyChecked || !hasValidRate;
+    }
+
+    // Event listeners para checkboxes individuales
+    worksheetCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updateCloseButton);
+    });
+
+    // Event listener para el campo de tasa
+    conversionRateInput.addEventListener('input', updateCloseButton);
+
+    // Seleccionar todo
+    selectAllBtn.addEventListener('click', function() {
+        worksheetCheckboxes.forEach(cb => cb.checked = true);
+        dateGroupCheckboxes.forEach(cb => cb.checked = true);
+        updateCloseButton();
+    });
+
+    // Limpiar selección
+    clearAllBtn.addEventListener('click', function() {
+        worksheetCheckboxes.forEach(cb => cb.checked = false);
+        dateGroupCheckboxes.forEach(cb => cb.checked = false);
+        dateSelectAlls.forEach(cb => cb.checked = false);
+        updateCloseButton();
+    });
+
+    // Funcionalidad para checkboxes por fecha
+    dateSelectAlls.forEach(dateCheckbox => {
+        dateCheckbox.addEventListener('change', function() {
+            const date = this.dataset.date;
+            const worksheetsForDate = document.querySelectorAll(`.worksheet-checkbox[data-date="${date}"]`);
+            worksheetsForDate.forEach(cb => cb.checked = this.checked);
+            updateCloseButton();
+        });
+    });
+
+    // Funcionalidad para checkboxes de grupo de fecha
+    dateGroupCheckboxes.forEach(groupCheckbox => {
+        groupCheckbox.addEventListener('change', function() {
+            const date = this.dataset.date;
+            const worksheetsForDate = document.querySelectorAll(`.worksheet-checkbox[data-date="${date}"]`);
+            const dateSelectAll = document.querySelector(`.date-select-all[data-date="${date}"]`);
+            
+            worksheetsForDate.forEach(cb => cb.checked = this.checked);
+            if (dateSelectAll) dateSelectAll.checked = this.checked;
+            updateCloseButton();
+        });
+    });
+
+    // Confirmación antes del envío
+    batchForm.addEventListener('submit', function(e) {
+        const selectedCount = Array.from(worksheetCheckboxes).filter(cb => cb.checked).length;
+        const conversionRate = conversionRateInput.value;
+        
+        if (selectedCount === 0) {
+            e.preventDefault();
+            alert('Por favor seleccione al menos una hoja de trabajo para cerrar.');
+            return;
+        }
+
+        const message = `¿Está seguro de cerrar ${selectedCount} hojas de trabajo con tasa ${conversionRate} BS/$?\n\nEsta acción no se puede deshacer fácilmente.`;
+        
+        if (!confirm(message)) {
+            e.preventDefault();
+        }
+    });
+
+    // Inicializar estado del botón
+    updateCloseButton();
+});
+</script>
+{% endblock %}

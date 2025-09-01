@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="mb-0">{{ page_title }}</h1>
+        <div class="btn-group" role="group">
+            <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-home"></i> Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Panel de Filtros -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h6 class="m-0 fw-bold text-primary">
+                <i class="fas fa-filter"></i> Filtros del Reporte
+            </h6>
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label for="start_date" class="form-label">Fecha Inicial</label>
+                    <input type="date" name="start_date" id="start_date" 
+                           value="{{ start_date|date:'Y-m-d' }}" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <label for="end_date" class="form-label">Fecha Final</label>
+                    <input type="date" name="end_date" id="end_date" 
+                           value="{{ end_date|date:'Y-m-d' }}" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <label for="client_id" class="form-label">Cliente Específico</label>
+                    <select name="client_id" id="client_id" class="form-select">
+                        <option value="">-- Todos los clientes --</option>
+                        {% for client in clients %}
+                            <option value="{{ client.id }}" {% if client.id == selected_client %}selected{% endif %}>
+                                {{ client.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search"></i> Filtrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Filtros de Tipo de Operación -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <label for="transaction_type" class="form-label fw-bold">Ver transacciones de:</label>
+                    <form method="get" style="display: inline;">
+                        <!-- Mantener otros filtros -->
+                        <input type="hidden" name="start_date" value="{{ start_date|date:'Y-m-d' }}">
+                        <input type="hidden" name="end_date" value="{{ end_date|date:'Y-m-d' }}">
+                        <input type="hidden" name="client_id" value="{{ selected_client|default_if_none:'' }}">
+                        
+                        <select name="transaction_type" id="transaction_type" class="form-select d-inline-block w-auto" onchange="this.form.submit()">
+                            {% for value, name in transaction_types %}
+                                <option value="{{ value }}" {% if value == selected_transaction_type %}selected{% endif %}>
+                                    {{ name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </form>
+                </div>
+                <div class="col-md-6 text-end">
+                    <div class="text-muted small">
+                        <strong>{{ total_unique_clients }}</strong> clientes únicos encontrados
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resumen por Cliente -->
+    {% if client_summaries %}
+    <div class="card shadow mb-4">
+        <div class="card-header">
+            <h6 class="m-0 fw-bold text-primary">
+                <i class="fas fa-chart-bar"></i> Resumen por Cliente
+            </h6>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Cliente</th>
+                            <th class="text-center">Transacciones</th>
+                            <th class="text-end">Volumen USD</th>
+                            <th class="text-end">Volumen USDT</th>
+                            <th class="text-end">Nuestra Ganancia</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for summary in client_summaries %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'client-detail' summary.client__id %}" class="text-decoration-none fw-bold">
+                                    {{ summary.client__name }}
+                                </a>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-primary">{{ summary.total_transactions }}</span>
+                            </td>
+                            <td class="text-end">${{ summary.total_volume_usd|floatformat:2|default:"0.00" }}</td>
+                            <td class="text-end">{{ summary.total_volume_usdt|floatformat:2|default:"0.00" }} USDT</td>
+                            <td class="text-end fw-bold text-success">
+                                <div class="d-flex flex-column align-items-end">
+                                    {% if summary.total_profit_usd > 0 %}
+                                        <small class="text-primary mb-0">${{ summary.total_profit_usd|floatformat:2 }}</small>
+                                    {% endif %}
+                                    {% if summary.total_profit_bs > 0 %}
+                                        <small class="text-success mb-0">{{ summary.total_profit_bs|floatformat:2 }} Bs.</small>
+                                    {% endif %}
+                                    {% if summary.total_profit_usd <= 0 and summary.total_profit_bs <= 0 %}
+                                        <small class="text-muted">0.00</small>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Tabla de Transacciones Detalladas -->
+    <div class="card shadow">
+        <div class="card-header">
+            <h6 class="m-0 fw-bold text-primary">
+                <i class="fas fa-list"></i> Detalle de Transacciones - Fácil de Entender
+            </h6>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Cliente</th>
+                            <th>¿Qué hizo el cliente?</th>
+                            <th>¿Cuánto pagó/recibió?</th>
+                            <th class="text-center">Tasa Usada</th>
+                            <th class="text-end">Nuestra Ganancia</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in processed_transactions %}
+                        <tr>
+                            <td class="text-muted small">
+                                {{ item.transaction.created_at|date:"d/m/Y" }}<br>
+                                <small>{{ item.transaction.created_at|time:"H:i" }}</small>
+                            </td>
+                            <td>
+                                <a href="{% url 'client-detail' item.transaction.client.pk %}" class="text-decoration-none fw-bold">
+                                    {{ item.transaction.client.name }}
+                                </a>
+                            </td>
+                            <td>
+                                <span class="fw-bold">{{ item.client_action }}</span><br>
+                                <small class="text-muted">{{ item.transaction.get_operation_type_display }}</small>
+                            </td>
+                            <td>
+                                <span class="fw-bold">{{ item.client_paid }}</span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-secondary">{{ item.rate_used|floatformat:2 }}</span>
+                            </td>
+                            <td class="text-end fw-bold {% if item.transaction.profit > 0 %}text-success{% elif item.transaction.profit < 0 %}text-danger{% endif %}">
+                                {{ item.our_gain }}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-muted">
+                                <i class="fas fa-inbox fa-3x mb-3 opacity-50"></i><br>
+                                No hay transacciones para los filtros seleccionados.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Paginación -->
+        {% if is_paginated %}
+        <div class="card-footer">
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1&{{ request.GET.urlencode }}">« Primera</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}&{{ request.GET.urlencode }}">Anterior</a>
+                        </li>
+                    {% endif %}
+                    
+                    <li class="page-item disabled">
+                        <span class="page-link">
+                            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                        </span>
+                    </li>
+                    
+                    {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}&{{ request.GET.urlencode }}">Siguiente</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&{{ request.GET.urlencode }}">Última »</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Información de ayuda -->
+    <div class="alert alert-info mt-4" role="alert">
+        <div class="row">
+            <div class="col-md-6">
+                <h6 class="alert-heading"><i class="fas fa-info-circle"></i> Cómo leer este reporte:</h6>
+                <ul class="mb-0 small">
+                    <li><strong>"Compró USD":</strong> El cliente nos pagó bolívares y recibió dólares</li>
+                    <li><strong>"Vendió USD":</strong> El cliente nos entregó dólares y recibió bolívares</li>
+                    <li><strong>"Nuestra ganancia":</strong> Lo que ganamos en cada transacción</li>
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <h6 class="alert-heading"><i class="fas fa-palette"></i> Códigos de colores:</h6>
+                <ul class="mb-0 small">
+                    <li><span class="badge bg-success">Verde</span>: Venta de USD (cliente compra)</li>
+                    <li><span class="badge bg-primary">Azul</span>: Compra de USD (cliente vende)</li>
+                    <li><span class="badge bg-info">Celeste</span>: Operaciones USDT/Zelle</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .opacity-50 {
+        opacity: 0.5;
+    }
+    
+    .table-hover tbody tr:hover {
+        background-color: rgba(0,123,255,.075);
+    }
+    
+    .fw-bold {
+        font-weight: 600 !important;
+    }
+</style>
+{% endblock %}
