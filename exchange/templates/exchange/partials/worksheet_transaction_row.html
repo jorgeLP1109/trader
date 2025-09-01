@@ -1,19 +1,62 @@
 <!-- exchange/templates/exchange/partials/worksheet_transaction_row.html -->
-<tr id="transaction-row-{{ tx.id }}">
-    <td>{{ tx.created_at|date:"H:i:s" }}</td>
-    <td>{{ tx.get_operation_type_display }}</td>
-    <td>{{ tx.amount_in|floatformat:2 }}</td>
-    <td>{{ tx.rate_or_fee|floatformat:4 }}</td>
-    <td>{{ tx.amount_out|floatformat:2 }}</td>
-    <td class="status-cell" data-tx-id="{{ tx.id }}" data-current-status="{{ tx.status }}">
-        <!-- El estado se muestra como un badge. Al hacer click, se convertirá en un select. -->
-        <span class="badge {% if tx.status == 'pending' %}bg-warning text-dark{% elif tx.status == 'completed' %}bg-success{% else %}bg-secondary{% endif %} status-badge">
+<tr id="transaction-row-{{ tx.id }}" class="transaction-row" data-operation="{{ tx.operation_type }}">
+    <td class="align-middle">
+        <span class="fw-bold text-primary">{{ tx.created_at|date:"H:i" }}</span>
+        <br><small class="text-muted">{{ tx.created_at|date:"s" }}s</small>
+    </td>
+    <td class="align-middle">
+        <div class="d-flex align-items-center">
+            <div class="operation-icon me-2">
+                {% if 'USDT' in tx.operation_type and 'CASH' in tx.operation_type %}
+                    <i class="fab fa-bitcoin text-warning"></i>
+                {% elif 'USD' in tx.operation_type and 'BS' in tx.operation_type %}
+                    <i class="fas fa-exchange-alt text-success"></i>
+                {% elif 'ZELLE' in tx.operation_type %}
+                    <i class="fas fa-mobile-alt text-info"></i>
+                {% elif 'BS' in tx.operation_type %}
+                    <i class="fas fa-coins text-warning"></i>
+                {% else %}
+                    <i class="fas fa-handshake text-primary"></i>
+                {% endif %}
+            </div>
+            <div>
+                <div class="fw-medium">{{ tx.get_operation_type_display }}</div>
+            </div>
+        </div>
+    </td>
+    <td class="align-middle">
+        <div class="d-flex align-items-center">
+            <i class="fas fa-arrow-down text-danger me-2"></i>
+            <span class="fw-bold">{{ tx.amount_in|floatformat:2 }}</span>
+        </div>
+    </td>
+    <td class="align-middle text-center">
+        <span class="badge bg-light text-dark border">
+            {% if 'USDT' in tx.operation_type and 'BS' in tx.operation_type or 'USD' in tx.operation_type and 'BS' in tx.operation_type %}
+                {{ tx.rate_or_fee|floatformat:2 }}
+            {% else %}
+                {{ tx.rate_or_fee|floatformat:2 }}%
+            {% endif %}
+        </span>
+    </td>
+    <td class="align-middle">
+        <div class="d-flex align-items-center">
+            <i class="fas fa-arrow-up text-success me-2"></i>
+            <span class="fw-bold text-success">{{ tx.amount_out|floatformat:2 }}</span>
+        </div>
+    </td>
+    <td class="status-cell align-middle" data-tx-id="{{ tx.id }}" data-current-status="{{ tx.status }}">
+        <!-- El estado se muestra como un badge mejorado. Al hacer click, se convertirá en un select. -->
+        <span class="badge status-badge {% if tx.status == 'pending' %}bg-warning text-dark{% elif tx.status == 'completed' %}bg-success{% elif tx.status == 'cancelled' %}bg-danger{% else %}bg-secondary{% endif %} px-3 py-2" style="cursor: pointer; transition: all 0.2s ease;">
+            <i class="fas {% if tx.status == 'pending' %}fa-clock{% elif tx.status == 'completed' %}fa-check-circle{% elif tx.status == 'cancelled' %}fa-times-circle{% else %}fa-question-circle{% endif %} me-1"></i>
             {{ tx.get_status_display }}
         </span>
         <!-- El select está oculto por defecto -->
-        <select class="form-select form-select-sm status-select d-none">
+        <select class="form-select form-select-sm status-select d-none" style="min-width: 120px;">
             {% for value, name in tx.STATUS_CHOICES %}
-                <option value="{{ value }}" {% if tx.status == value %}selected{% endif %}>{{ name }}</option>
+                <option value="{{ value }}" {% if tx.status == value %}selected{% endif %}>
+                    {% if value == 'pending' %}⏰{% elif value == 'completed' %}✅{% elif value == 'cancelled' %}❌{% endif %} {{ name }}
+                </option>
             {% endfor %}
         </select>
     </td>

@@ -93,6 +93,31 @@
             </div>
         </div>
     </div>
+    
+    <!-- Quick Access to New Reports -->
+    <div class="row mt-3">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="m-0 fw-bold"><i class="fas fa-chart-line"></i> Acceso Rápido a Reportes Avanzados</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-2">
+                            <a href="{% url 'report-profit-loss' %}" class="btn btn-outline-success w-100">
+                                <i class="fas fa-chart-line me-2"></i>Análisis de Ganancias y Pérdidas
+                            </a>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <a href="{% url 'report-transactions-by-client' %}" class="btn btn-outline-info w-100">
+                                <i class="fas fa-users me-2"></i>Transacciones por Cliente
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Estilos (sin cambios) -->

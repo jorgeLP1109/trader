@@ -9,7 +9,7 @@ from .models import VaultAdjustment
 class AdvancedTransactionForm(forms.ModelForm):
     class Meta:
         model = AdvancedTransaction
-        fields = ['operation_type', 'status', 'amount_in', 'rate_or_fee', 'base_rate', 'notes']
+        fields = ['operation_type', 'status', 'amount_primary', 'rate_or_fee', 'base_rate', 'notes']
         widgets = {
             'notes': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Añade cualquier nota relevante aquí...'}),
         }
@@ -21,14 +21,16 @@ class AdvancedTransactionForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
-        self.fields['amount_in'].label = "Monto de Entrada"
-        self.fields['amount_in'].widget.attrs.update({'placeholder': 'Ej: 100.00'})
+        # Cambiar el label dinámicamente según la operación
+        self.fields['amount_primary'].label = "Monto Principal"
+        self.fields['amount_primary'].widget.attrs.update({'placeholder': 'Ej: 100.00'})
+        self.fields['amount_primary'].help_text = "El monto principal de la operación (lo que estás vendiendo, comprando o intercambiando)"
         
         self.fields['rate_or_fee'].label = "Tasa de Operación / Fee (%)"
         self.fields['rate_or_fee'].widget.attrs.update({'placeholder': 'Ej: 125.50 o 15'})
 
         self.fields['operation_type'].widget.attrs.update({'id': 'id_operation_type'})
-        self.fields['amount_in'].widget.attrs.update({'id': 'id_amount_in'})
+        self.fields['amount_primary'].widget.attrs.update({'id': 'id_amount_primary'})
         self.fields['rate_or_fee'].widget.attrs.update({'id': 'id_rate_or_fee'})
 
 

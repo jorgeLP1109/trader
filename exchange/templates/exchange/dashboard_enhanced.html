@@ -1,0 +1,357 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="mb-0">{{ page_title }}</h1>
+        <div class="btn-group" role="group">
+            <a href="{% url 'report-profit-loss' %}" class="btn btn-primary">
+                <i class="fas fa-chart-line"></i> Ganancias/Pérdidas
+            </a>
+            <a href="{% url 'report-transactions-by-client' %}" class="btn btn-success">
+                <i class="fas fa-users"></i> Por Cliente
+            </a>
+        </div>
+    </div>
+
+    <!-- Tarjetas de Saldos de Caja -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Efectivo USD
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                ${{ cash_on_hand_usd|floatformat:2 }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-dollar-sign fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Bolívares
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ cash_on_hand_bs|floatformat:2 }} Bs.
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-coins fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                USDT
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ cash_on_hand_usdt|floatformat:2 }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-coins fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Zelle
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                ${{ cash_on_hand_zelle|floatformat:2 }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-credit-card fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Métricas de Rendimiento (Últimos 30 días) -->
+    <div class="row mb-4">
+        <div class="col-xl-4 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Ganancia (30 días) - Comisiones
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                ${{ performance_metrics.total_profit_usd_last_30d|floatformat:2 }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-percentage fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-4 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Ganancia (30 días) - Spread
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ performance_metrics.total_profit_bs_last_30d|floatformat:2 }} Bs.
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-chart-line fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-4 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Transacciones (30 días)
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ performance_metrics.total_transactions_last_30d }}
+                            </div>
+                            <div class="small text-muted">
+                                Promedio: {{ performance_metrics.avg_daily_transactions|floatformat:1 }}/día
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-exchange-alt fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráficos y Análisis -->
+    <div class="row mb-4">
+        <!-- Estadísticas por Tipo de Operación -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow">
+                <div class="card-header">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-chart-bar"></i> Operaciones por Tipo (30 días)
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if operation_stats %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Operación</th>
+                                        <th class="text-center">Cantidad</th>
+                                        <th class="text-end">Ganancia</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for stat in operation_stats %}
+                                    <tr>
+                                        <td>{{ stat.name|truncatechars:25 }}</td>
+                                        <td class="text-center">
+                                            <span class="badge bg-secondary">{{ stat.count }}</span>
+                                        </td>
+                                        <td class="text-end fw-bold {% if stat.profit > 0 %}text-success{% endif %}">
+                                            {% if 'USD_FOR_BS' in stat.code or 'USDT_FOR_BS' in stat.code %}
+                                                {{ stat.profit|floatformat:2 }} Bs.
+                                            {% else %}
+                                                ${{ stat.profit|floatformat:2 }}
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-chart-bar fa-3x mb-3 opacity-50"></i><br>
+                            No hay operaciones en los últimos 30 días
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Clientes por Rentabilidad -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow">
+                <div class="card-header">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-users"></i> Top Clientes por Rentabilidad (30 días)
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if top_profitable_clients %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Cliente</th>
+                                        <th class="text-center">Trans.</th>
+                                        <th class="text-end">Ganancia</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for client in top_profitable_clients %}
+                                    <tr>
+                                        <td>
+                                            <a href="{% url 'client-detail' client.client__id %}" class="text-decoration-none">
+                                                {{ client.client__name|truncatechars:20 }}
+                                            </a>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-info">{{ client.total_transactions }}</span>
+                                        </td>
+                                        <td class="text-end fw-bold text-success">
+                                            {{ client.total_profit_bs|floatformat:2 }} Bs.
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-users fa-3x mb-3 opacity-50"></i><br>
+                            No hay clientes con transacciones recientes
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actividad Reciente -->
+    <div class="card shadow">
+        <div class="card-header">
+            <h6 class="m-0 font-weight-bold text-primary">
+                <i class="fas fa-history"></i> Actividad Reciente
+            </h6>
+        </div>
+        <div class="card-body">
+            {% if recent_activity %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Fecha/Hora</th>
+                                <th>Cliente</th>
+                                <th>Operación</th>
+                                <th class="text-end">Entrada</th>
+                                <th class="text-end">Salida</th>
+                                <th class="text-end">Ganancia</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for tx in recent_activity %}
+                            <tr>
+                                <td class="small text-muted">
+                                    {{ tx.created_at|date:"d/m H:i" }}
+                                </td>
+                                <td>
+                                    <a href="{% url 'client-detail' tx.client.pk %}" class="text-decoration-none">
+                                        {{ tx.client.name|truncatechars:25 }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <span class="badge {% if 'SELL' in tx.operation_type %}bg-success{% elif 'BUY' in tx.operation_type %}bg-primary{% else %}bg-info{% endif %}">
+                                        {{ tx.get_operation_type_display|truncatechars:20 }}
+                                    </span>
+                                </td>
+                                <td class="text-end">{{ tx.amount_in|floatformat:2 }}</td>
+                                <td class="text-end">{{ tx.amount_out|floatformat:2 }}</td>
+                                <td class="text-end fw-bold {% if tx.profit > 0 %}text-success{% elif tx.profit < 0 %}text-danger{% endif %}">
+                                    {% if 'USD_FOR_BS' in tx.operation_type or 'USDT_FOR_BS' in tx.operation_type %}
+                                        {{ tx.profit|floatformat:2 }} Bs.
+                                    {% else %}
+                                        ${{ tx.profit|floatformat:2 }}
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-history fa-3x mb-3 opacity-50"></i><br>
+                    No hay actividad reciente
+                </div>
+            {% endif %}
+        </div>
+        <div class="card-footer text-center">
+            <a href="{% url 'report-profit-loss' %}" class="btn btn-primary">
+                <i class="fas fa-eye"></i> Ver Reporte Completo
+            </a>
+        </div>
+    </div>
+</div>
+
+<style>
+    .border-left-primary {
+        border-left: 4px solid #4e73df !important;
+    }
+    .border-left-success {
+        border-left: 4px solid #1cc88a !important;
+    }
+    .border-left-info {
+        border-left: 4px solid #36b9cc !important;
+    }
+    .border-left-warning {
+        border-left: 4px solid #f6c23e !important;
+    }
+    .text-gray-800 {
+        color: #5a5c69 !important;
+    }
+    .text-gray-300 {
+        color: #dddfeb !important;
+    }
+    .opacity-50 {
+        opacity: 0.5;
+    }
+    .fw-bold {
+        font-weight: 600 !important;
+    }
+</style>
+{% endblock %}

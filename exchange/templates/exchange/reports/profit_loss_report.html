@@ -1,0 +1,359 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="mb-0">{{ page_title }}</h1>
+        <div class="btn-group" role="group">
+            <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-home"></i> Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Panel de Filtros -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h6 class="m-0 fw-bold text-primary">
+                <i class="fas fa-filter"></i> Filtros del Reporte
+            </h6>
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-2">
+                    <label for="start_date" class="form-label">Fecha Inicial</label>
+                    <input type="date" name="start_date" id="start_date" 
+                           value="{{ start_date|date:'Y-m-d' }}" class="form-control">
+                </div>
+                <div class="col-md-2">
+                    <label for="end_date" class="form-label">Fecha Final</label>
+                    <input type="date" name="end_date" id="end_date" 
+                           value="{{ end_date|date:'Y-m-d' }}" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <label for="operation_type" class="form-label">Tipo de Operación</label>
+                    <select name="operation_type" id="operation_type" class="form-select">
+                        <option value="">-- Todas --</option>
+                        {% for value, name in operation_choices %}
+                            <option value="{{ value }}" {% if value == selected_operation %}selected{% endif %}>
+                                {{ name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="client_id" class="form-label">Cliente</label>
+                    <select name="client_id" id="client_id" class="form-select">
+                        <option value="">-- Todos los clientes --</option>
+                        {% for client in clients %}
+                            <option value="{{ client.id }}" {% if client.id == selected_client %}selected{% endif %}>
+                                {{ client.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search"></i> Filtrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tarjetas de Resumen Financiero -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Ganancia Total USD
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                ${{ financial_summary.total_profit_usd|floatformat:2 }}
+                            </div>
+                            <div class="text-xs text-muted">
+                                (Bs {{ financial_summary.total_profit_bs|floatformat:2 }})
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-dollar-sign fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Total Transacciones
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ financial_summary.total_transactions }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-exchange-alt fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Ganancia Promedio/Trans.
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ financial_summary.avg_profit_per_transaction|floatformat:2 }} Bs.
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-chart-line fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Análisis por Tipo de Operación -->
+    <div class="row mb-4">
+        <div class="col-lg-6">
+            <div class="card shadow">
+                <div class="card-header bg-success text-white">
+                    <h6 class="m-0 fw-bold">
+                        <i class="fas fa-percentage"></i> Operaciones por Comisión
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-sm-6">
+                            <div class="text-sm fw-bold text-uppercase text-gray-500 mb-1">
+                                Total de Operaciones:
+                            </div>
+                            <div class="h4 mb-3">{{ operation_analysis.commission_operations.count }}</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="text-sm fw-bold text-uppercase text-gray-500 mb-1">
+                                Ganancia Total:
+                            </div>
+                            <div class="h4 mb-3 text-success">
+                                ${{ operation_analysis.commission_operations.total_profit_usd|floatformat:2 }}
+                            </div>
+                            <div class="text-xs text-muted">
+                                (Bs {{ operation_analysis.commission_operations.total_profit_bs|floatformat:2 }})
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-sm text-muted">
+                        Promedio por operación: 
+                        <strong>${{ operation_analysis.commission_operations.avg_profit_usd|floatformat:2 }}</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="m-0 fw-bold">
+                        <i class="fas fa-chart-line"></i> Operaciones por Spread
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-sm-6">
+                            <div class="text-sm fw-bold text-uppercase text-gray-500 mb-1">
+                                Total de Operaciones:
+                            </div>
+                            <div class="h4 mb-3">{{ operation_analysis.spread_operations.count }}</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="text-sm fw-bold text-uppercase text-gray-500 mb-1">
+                                Ganancia Total:
+                            </div>
+                            <div class="h4 mb-3 text-primary">
+                                Bs {{ operation_analysis.spread_operations.total_profit_bs|floatformat:2 }}
+                            </div>
+                            <div class="text-xs text-muted">
+                                (${{ operation_analysis.spread_operations.total_profit_usd|floatformat:2 }})
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-sm text-muted">
+                        Promedio por operación: 
+                        <strong>Bs {{ operation_analysis.spread_operations.avg_profit_usd|floatformat:2 }}</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Clientes por Rentabilidad -->
+    {% if top_clients %}
+    <div class="card shadow mb-4">
+        <div class="card-header">
+            <h6 class="m-0 fw-bold text-primary">
+                <i class="fas fa-users"></i> Top 10 Clientes por Rentabilidad
+            </h6>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Cliente</th>
+                            <th class="text-center">Transacciones</th>
+                            <th class="text-end">Volumen Total</th>
+                            <th class="text-end">Ganancia Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for client in top_clients %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'client-detail' client.client__id %}" class="text-decoration-none">
+                                    {{ client.client__name }}
+                                </a>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-secondary">{{ client.total_transactions }}</span>
+                            </td>
+                            <td class="text-end">${{ client.total_volume|floatformat:2 }}</td>
+                            <td class="text-end fw-bold text-success">
+                                {{ client.total_profit|floatformat:2 }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Tabla de Transacciones -->
+    <div class="card shadow">
+        <div class="card-header">
+            <h6 class="m-0 fw-bold text-primary">
+                <i class="fas fa-list"></i> Detalle de Transacciones
+            </h6>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Fecha/Hora</th>
+                            <th>Cliente</th>
+                            <th>Operación</th>
+                            <th class="text-end">Entrada</th>
+                            <th class="text-center">Tasa/Fee</th>
+                            <th class="text-end">Salida</th>
+                            <th class="text-end">Ganancia</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for tx in transactions %}
+                        <tr>
+                            <td class="text-muted small">
+                                {{ tx.created_at|date:"d/m/Y" }}<br>
+                                <small>{{ tx.created_at|time:"H:i" }}</small>
+                            </td>
+                            <td>
+                                <a href="{% url 'client-detail' tx.client.pk %}" class="text-decoration-none">
+                                    {{ tx.client.name }}
+                                </a>
+                            </td>
+                            <td>
+                                <span class="badge {% if 'SELL' in tx.operation_type %}bg-success{% elif 'BUY' in tx.operation_type %}bg-primary{% else %}bg-info{% endif %}">
+                                    {{ tx.get_operation_type_display }}
+                                </span>
+                            </td>
+                            <td class="text-end">{{ tx.amount_in|floatformat:2 }}</td>
+                            <td class="text-center">{{ tx.rate_or_fee|floatformat:2 }}</td>
+                            <td class="text-end">{{ tx.amount_out|floatformat:2 }}</td>
+                            <td class="text-end fw-bold {% if tx.profit_amount > 0 %}text-success{% elif tx.profit_amount < 0 %}text-danger{% endif %}">
+                                {{ tx.get_profit_display }}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-4 text-muted">
+                                No hay transacciones para los filtros seleccionados.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Paginación -->
+        {% if is_paginated %}
+        <div class="card-footer">
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1&{{ request.GET.urlencode }}">« Primera</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}&{{ request.GET.urlencode }}">Anterior</a>
+                        </li>
+                    {% endif %}
+                    
+                    <li class="page-item disabled">
+                        <span class="page-link">
+                            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                        </span>
+                    </li>
+                    
+                    {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}&{{ request.GET.urlencode }}">Siguiente</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&{{ request.GET.urlencode }}">Última »</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+    .border-left-success {
+        border-left: 4px solid #1cc88a !important;
+    }
+    .border-left-primary {
+        border-left: 4px solid #4e73df !important;
+    }
+    .border-left-info {
+        border-left: 4px solid #36b9cc !important;
+    }
+    .border-left-warning {
+        border-left: 4px solid #f6c23e !important;
+    }
+    .text-gray-800 {
+        color: #5a5c69 !important;
+    }
+    .text-gray-300 {
+        color: #dddfeb !important;
+    }
+</style>
+{% endblock %}

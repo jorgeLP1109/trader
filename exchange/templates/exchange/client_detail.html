@@ -85,25 +85,25 @@
                         <td>{{ tx.created_at|date:"d/m/Y H:i" }}</td>
                         <td>{{ tx.get_operation_type_display }}</td>
 
-                        <!-- LÓGICA DE ENTRADA Y SALIDA CORREGIDA -->
+                        <!-- LÓGICA DE ENTRADA Y SALIDA CORREGIDA CON AMOUNT_PRIMARY -->
                         {% if tx.operation_type == 'SELL_USD_FOR_BS' %}
-                            <td class="text-end text-success">+ {{ tx.amount_out|floatformat:2 }} Bs.</td>
-                            <td class="text-end text-danger">- ${{ tx.amount_in|floatformat:2 }} (Efectivo)</td>
+                            <td class="text-end text-success">+ {{ tx.amount_in|floatformat:2 }} Bs.</td>
+                            <td class="text-end text-danger">- ${{ tx.amount_primary|floatformat:2 }} (Efectivo)</td>
                         {% elif tx.operation_type == 'BUY_USD_FOR_BS' %}
-                            <td class="text-end text-success">+ ${{ tx.amount_in|floatformat:2 }} (Efectivo)</td>
-                            <td class="text-end text-danger">- {{ tx.amount_out|floatformat:2 }} Bs.</td>
+                            <td class="text-end text-success">+ ${{ tx.amount_primary|floatformat:2 }} (Efectivo)</td>
+                            <td class="text-end text-danger">- {{ tx.amount_in|floatformat:2 }} Bs.</td>
                         {% elif tx.operation_type == 'USDT_FOR_CASH' %}
                             <td class="text-end text-success">+ ${{ tx.amount_out|floatformat:2 }} (Efectivo)</td>
-                            <td class="text-end text-danger">- {{ tx.amount_in|floatformat:2 }} USDT</td>
+                            <td class="text-end text-danger">- {{ tx.amount_primary|floatformat:2 }} USDT</td>
                         {% elif tx.operation_type == 'CASH_FOR_USDT' %}
-                            <td class="text-end text-success">+ {{ tx.amount_in|floatformat:2 }} USDT</td>
-                            <td class="text-end text-danger">- ${{ tx.amount_out|floatformat:2 }} (Efectivo)</td>
+                            <td class="text-end text-success">+ {{ tx.amount_out|floatformat:2 }} USDT</td>
+                            <td class="text-end text-danger">- ${{ tx.amount_primary|floatformat:2 }} (Efectivo)</td>
                         {% elif tx.operation_type == 'USDT_FOR_BS' %}
                             <td class="text-end text-success">+ {{ tx.amount_out|floatformat:2 }} Bs.</td>
-                            <td class="text-end text-danger">- {{ tx.amount_in|floatformat:2 }} USDT</td>
+                            <td class="text-end text-danger">- {{ tx.amount_primary|floatformat:2 }} USDT</td>
                         {% elif tx.operation_type == 'ZELLE_FOR_CASH' %}
                             <td class="text-end text-success">+ ${{ tx.amount_out|floatformat:2 }} (Efectivo)</td>
-                            <td class="text-end text-danger">- ${{ tx.amount_in|floatformat:2 }} (Zelle)</td>
+                            <td class="text-end text-danger">- ${{ tx.amount_primary|floatformat:2 }} (Zelle)</td>
                         {% else %}
                             <td class="text-end">--</td>
                             <td class="text-end">--</td>

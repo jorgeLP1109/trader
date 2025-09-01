@@ -26,16 +26,17 @@
                 <!-- Lógica de Flujo de Caja -->
                 <!-- USD (Efectivo) -->
                 <td>
-                    {% if tx.operation_type == 'BUY_USD_FOR_BS' %}<span class="text-success" title="Entra USD">+{{ tx.amount_in|floatformat:2 }}</span>
-                    {% elif tx.operation_type == 'CASH_FOR_USDT' %}<span class="text-danger" title="Sale USD">-{{ tx.amount_in|floatformat:2 }}</span>
-                    {% elif tx.operation_type == 'USDT_FOR_CASH' %}<span class="text-success" title="Entra USD">+{{ tx.amount_out|floatformat:2 }}</span>
-                    {% elif tx.operation_type == 'ZELLE_FOR_CASH' %}<span class="text-success" title="Entra USD">+{{ tx.amount_out|floatformat:2 }}</span>
+                    {% if tx.operation_type == 'SELL_USD_FOR_BS' %}<span class="text-danger" title="Sale USD del inventario">-{{ tx.amount_primary|floatformat:2 }}</span>
+                    {% elif tx.operation_type == 'BUY_USD_FOR_BS' %}<span class="text-success" title="Entra USD al inventario">+{{ tx.amount_primary|floatformat:2 }}</span>
+                    {% elif tx.operation_type == 'CASH_FOR_USDT' %}<span class="text-danger" title="Sale USD del inventario">-{{ tx.amount_primary|floatformat:2 }}</span>
+                    {% elif tx.operation_type == 'USDT_FOR_CASH' %}<span class="text-success" title="Entra USD al inventario">+{{ tx.amount_out|floatformat:2 }}</span>
+                    {% elif tx.operation_type == 'ZELLE_FOR_CASH' %}<span class="text-success" title="Entra USD al inventario">+{{ tx.amount_out|floatformat:2 }}</span>
                     {% else %} - {% endif %}
                 </td>
                 <!-- Bolívares (BS) -->
                 <td>
-                    {% if tx.operation_type == 'SELL_USD_FOR_BS' or tx.operation_type == 'USDT_FOR_BS' %}<span class="text-success" title="Entra BS">+{{ tx.amount_out|floatformat:2 }}</span>
-                    {% elif tx.operation_type == 'BUY_USD_FOR_BS' %}<span class="text-danger" title="Sale BS">-{{ tx.amount_out|floatformat:2 }}</span>
+                    {% if tx.operation_type == 'SELL_USD_FOR_BS' or tx.operation_type == 'USDT_FOR_BS' %}<span class="text-success" title="Entra BS al inventario">+{{ tx.amount_in|floatformat:2 }}</span>
+                    {% elif tx.operation_type == 'BUY_USD_FOR_BS' %}<span class="text-danger" title="Sale BS del inventario">-{{ tx.amount_in|floatformat:2 }}</span>
                     {% else %} - {% endif %}
                 </td>
                 <!-- USDT -->
@@ -50,13 +51,19 @@
                     {% else %} - {% endif %}
                 </td>
                 
-                <!-- Ganancia -->
-                <td class="fw-bold {% if tx.profit > 0 %}text-success{% elif tx.profit < 0 %}text-danger{% endif %}">
-                    {% if 'USD_FOR_BS' in tx.operation_type or 'USDT_FOR_BS' in tx.operation_type %}
-                        {{ tx.profit|floatformat:2 }} Bs.
-                    {% else %}
-                        {% if tx.profit > 0 %}${{ tx.profit|floatformat:2 }}{% else %}-{% endif %}
-                    {% endif %}
+                <!-- Ganancia usando nuevos campos mejorados -->
+                <td class="fw-bold">
+                    <div class="d-flex flex-column align-items-center">
+                        {% if tx.profit_usd_equivalent > 0 %}
+                            <small class="text-primary mb-0">${{ tx.profit_usd_equivalent|floatformat:2 }}</small>
+                        {% endif %}
+                        {% if tx.profit_bs_equivalent > 0 %}
+                            <small class="text-success mb-0">{{ tx.profit_bs_equivalent|floatformat:2 }} Bs.</small>
+                        {% endif %}
+                        {% if tx.profit_usd_equivalent <= 0 and tx.profit_bs_equivalent <= 0 %}
+                            <small class="text-muted">0.00 Bs.</small>
+                        {% endif %}
+                    </div>
                 </td>
             </tr>
             {% empty %}

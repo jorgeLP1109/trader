@@ -25,20 +25,44 @@
         <div class="col-lg-8 mb-4">
             <div class="card bg-light border-secondary h-100">
                 <div class="card-header"><div class="fw-bold text-secondary text-uppercase">Volumen Total Movido con Cliente</div></div>
-                <div class="card-body d-flex flex-wrap justify-content-around align-items-center">
-                    <div class="text-center mx-3 my-2"><small>USD (Efectivo)</small><h5 class="mb-0">${{ summary.volume.usd_in|add:summary.volume.usd_out|floatformat:2 }}</h5></div>
-                    <div class="text-center mx-3 my-2"><small>Bolívares</small><h5 class="mb-0">{{ summary.volume.bs_in|add:summary.volume.bs_out|floatformat:2 }}</h5></div>
-                    <div class="text-center mx-3 my-2"><small>USDT</small><h5 class="mb-0">{{ summary.volume.usdt_in|add:summary.volume.usdt_out|floatformat:2 }}</h5></div>
+                <div class="card-body">
+                    <h6 class="text-muted mb-3">Volumen Total Operado (Monto Principal)</h6>
+                    <div class="d-flex flex-wrap justify-content-around align-items-center">
+                        <div class="text-center mx-3 my-2">
+                            <small>USD (Efectivo)</small>
+                            <h5 class="mb-0">${{ summary.volume.usd_in|add:summary.volume.usd_out|floatformat:2 }}</h5>
+                            <small class="text-muted">Entrada: ${{ summary.volume.usd_in|floatformat:2 }} | Salida: ${{ summary.volume.usd_out|floatformat:2 }}</small>
+                        </div>
+                        <div class="text-center mx-3 my-2">
+                            <small>Bolívares</small>
+                            <h5 class="mb-0">{{ summary.volume.bs_in|add:summary.volume.bs_out|floatformat:2 }}</h5>
+                            <small class="text-muted">Entrada: {{ summary.volume.bs_in|floatformat:2 }} | Salida: {{ summary.volume.bs_out|floatformat:2 }}</small>
+                        </div>
+                        <div class="text-center mx-3 my-2">
+                            <small>USDT</small>
+                            <h5 class="mb-0">{{ summary.volume.usdt_in|add:summary.volume.usdt_out|floatformat:2 }}</h5>
+                            <small class="text-muted">Entrada: {{ summary.volume.usdt_in|floatformat:2 }} | Salida: {{ summary.volume.usdt_out|floatformat:2 }}</small>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
         <div class="col-lg-4 mb-4">
-            <div class="card bg-success-subtle border-success h-100">
-                <div class="card-header"><div class="fw-bold text-success text-uppercase">Ganancia Total (Aprox. BS)</div></div>
-                <div class="card-body d-flex align-items-center justify-content-center">
-                    <h3 class="mb-0">{{ summary.total_profit_in_bs|floatformat:2 }} Bs.</h3>
+                <div class="card bg-success-subtle border-success h-100">
+                    <div class="card-header"><div class="fw-bold text-success text-uppercase">Ganancias por Cliente</div></div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-12 mb-2">
+                                <small class="text-muted">Ganancia USD Equivalente</small>
+                                <h4 class="mb-0 text-primary">${{ summary.total_profit_usd|floatformat:2 }}</h4>
+                            </div>
+                            <div class="col-12">
+                                <small class="text-muted">Ganancia BS Equivalente</small>
+                                <h4 class="mb-0 text-success">{{ summary.total_profit_bs|floatformat:2 }} Bs.</h4>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </div>
         </div>
     </div>
 

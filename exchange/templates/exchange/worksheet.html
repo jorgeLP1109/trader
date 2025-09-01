@@ -2,48 +2,203 @@
 {% load crispy_forms_tags %}
 
 {% block content %}
+<style>
+    .worksheet-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 25px;
+        box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
+    }
+    .stats-card {
+        background: white;
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .stats-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+    }
+    .stat-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        color: white;
+        margin-right: 15px;
+    }
+    .form-card {
+        background: white;
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 6px 25px rgba(0,0,0,0.1);
+    }
+    .table-modern {
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    }
+    .table-modern thead {
+        background: linear-gradient(45deg, #667eea, #764ba2);
+        color: white;
+    }
+    .table-modern tbody tr {
+        transition: background-color 0.2s ease;
+    }
+    .table-modern tbody tr:hover {
+        background-color: #f8f9ff;
+    }
+    .calculation-box {
+        background: linear-gradient(135deg, #667eea15, #764ba215);
+        border: 2px solid #667eea30;
+        border-radius: 12px;
+        padding: 20px;
+    }
+    .btn-modern {
+        border-radius: 10px;
+        padding: 12px 25px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+    .btn-modern:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+    }
+    .status-open { background: linear-gradient(45deg, #28a745, #20c997); }
+    .status-closed { background: linear-gradient(45deg, #dc3545, #fd7e14); }
+</style>
+
 <div class="container-fluid mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-            <h1 class="mb-0">{{ page_title }}</h1>
-            <small class="text-muted">Fecha: {{ worksheet.date|date:"d/m/Y" }} | Estado: <span class="fw-bold">{{ worksheet.get_status_display }}</span></small>
+    <!-- Header mejorado -->
+    <div class="worksheet-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="mb-2"><i class="fas fa-clipboard-list me-3"></i>{{ page_title }}</h1>
+                <div class="d-flex align-items-center">
+                    <span class="badge {% if worksheet.status == 'open' %}status-open{% else %}status-closed{% endif %} me-3 px-3 py-2">
+                        <i class="fas {% if worksheet.status == 'open' %}fa-folder-open{% else %}fa-folder{% endif %} me-2"></i>
+                        {{ worksheet.get_status_display }}
+                    </span>
+                    <span class="opacity-75">
+                        <i class="fas fa-calendar-alt me-2"></i>
+                        {{ worksheet.date|date:"l, d F Y" }}
+                    </span>
+                </div>
+            </div>
+            <div class="col-md-4 text-end">
+                {% if worksheet.status == 'open' %}
+                    <button type="button" class="btn btn-light btn-modern me-2" data-bs-toggle="modal" data-bs-target="#closeWorksheetModal">
+                        <i class="fas fa-lock me-2"></i>Cerrar Hoja
+                    </button>
+                {% else %}
+                    <form action="{% url 'reopen-worksheet' worksheet.id %}" method="post" class="d-inline me-2" onsubmit="return confirm('¿Estás seguro de que quieres reabrir esta hoja de trabajo?');">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-warning btn-modern">
+                            <i class="fas fa-unlock me-2"></i>Reabrir Hoja
+                        </button>
+                    </form>
+                {% endif %}
+                <a href="{% url 'client-detail' client.pk %}" class="btn btn-outline-light btn-modern">
+                    <i class="fas fa-arrow-left me-2"></i>Volver
+                </a>
+            </div>
         </div>
-        <div>
-            {% if worksheet.status == 'open' %}
-                <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#closeWorksheetModal">
-                    Cerrar Hoja de Trabajo
-                </button>
-            {% else %}
-                <form action="{% url 'reopen-worksheet' worksheet.id %}" method="post" class="d-inline" onsubmit="return confirm('¿Estás seguro de que quieres reabrir esta hoja de trabajo?');">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-warning">Reabrir Hoja de Trabajo</button>
-                </form>
-            {% endif %}
-            <a href="{% url 'client-detail' client.pk %}" class="btn btn-secondary">Volver al Cliente</a>
+    </div>
+
+    <!-- Estadísticas en tiempo real -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card stats-card h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="stat-icon" style="background: linear-gradient(45deg, #28a745, #20c997);">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-muted mb-0">Operaciones</h6>
+                        <h4 class="mb-0" id="total-operations">{{ transactions|length }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card stats-card h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="stat-icon" style="background: linear-gradient(45deg, #007bff, #6610f2);">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-muted mb-0">Completadas</h6>
+                        <h4 class="mb-0" id="completed-operations">-</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card stats-card h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="stat-icon" style="background: linear-gradient(45deg, #ffc107, #fd7e14);">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-muted mb-0">Pendientes</h6>
+                        <h4 class="mb-0" id="pending-operations">-</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card stats-card h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="stat-icon" style="background: linear-gradient(45deg, #28a745, #20c997);">
+                        <i class="fas fa-dollar-sign"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-muted mb-0">Volumen Total</h6>
+                        <h4 class="mb-0" id="total-volume">$0.00</h4>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
     <div class="row">
         <!-- Columna de Formulario y Resumen -->
         <div class="col-lg-4">
-            <div class="card shadow-sm sticky-top" style="top: 80px;">
-                <div class="card-header"><h5 class="mb-0">Añadir Operación</h5></div>
+            <div class="card form-card sticky-top" style="top: 80px;">
+                <div class="card-header bg-gradient text-white" style="background: linear-gradient(45deg, #667eea, #764ba2);">
+                    <h5 class="mb-0"><i class="fas fa-plus-circle me-2"></i>Añadir Operación</h5>
+                </div>
                 <div class="card-body">
                     {% if worksheet.status == 'open' %}
                     <form id="add-transaction-form" method="post" action="{% url 'add-transaction-to-worksheet-ajax' worksheet.id %}" data-url="{% url 'add-transaction-to-worksheet-ajax' worksheet.id %}">
                         {% csrf_token %}
                         {{ form|crispy }}
-                        <div class="alert alert-info mt-3" id="calculation-box">
-                            <h6 id="result-title">Resultado</h6>
-                            <p class="fs-5 mb-0" id="result-display">--</p>
-                            <p class="mb-0 small" id="profit-display"></p>
+                        <div class="calculation-box mt-3" id="calculation-box">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="fas fa-calculator text-primary me-2"></i>
+                                <h6 class="mb-0" id="result-title">Resultado</h6>
+                            </div>
+                            <div class="text-center">
+                                <p class="fs-4 fw-bold text-primary mb-0" id="result-display">--</p>
+                                <p class="mb-0 small text-muted" id="profit-display"></p>
+                            </div>
                         </div>
-                        <button type="submit" class="btn btn-primary w-100 mt-2">
-                            <i class="fas fa-plus-circle"></i> Añadir a la Hoja
+                        <button type="submit" class="btn btn-primary btn-modern w-100 mt-3">
+                            <i class="fas fa-plus-circle me-2"></i>Añadir a la Hoja
                         </button>
                     </form>
                     {% else %}
-                    <div class="alert alert-warning">Esta hoja de trabajo está cerrada y no se pueden añadir más operaciones.</div>
+                    <div class="alert alert-warning">
+                        <i class="fas fa-lock me-2"></i>
+                        Esta hoja de trabajo está cerrada y no se pueden añadir más operaciones.
+                    </div>
                     {% endif %}
                 </div>
             </div>
@@ -51,17 +206,34 @@
 
         <!-- Columna de Historial -->
         <div class="col-lg-8">
-            <div class="card shadow-sm">
-                <div class="card-header"><h5 class="mb-0">Operaciones en esta Hoja</h5></div>
+            <div class="card form-card">
+                <div class="card-header bg-gradient text-white" style="background: linear-gradient(45deg, #667eea, #764ba2);">
+                    <h5 class="mb-0"><i class="fas fa-list me-2"></i>Operaciones en esta Hoja</h5>
+                </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
-                        <table class="table table-striped mb-0">
-                            <thead><tr><th>Hora</th><th>Operación</th><th>Entrada</th><th>Tasa/Fee</th><th>Salida</th><th>Estado</th></tr></thead>
+                        <table class="table table-modern mb-0">
+                            <thead class="text-white">
+                                <tr>
+                                    <th><i class="fas fa-clock me-2"></i>Hora</th>
+                                    <th><i class="fas fa-exchange-alt me-2"></i>Operación</th>
+                                    <th><i class="fas fa-arrow-down me-2"></i>Entrada</th>
+                                    <th><i class="fas fa-percentage me-2"></i>Tasa/Fee</th>
+                                    <th><i class="fas fa-arrow-up me-2"></i>Salida</th>
+                                    <th><i class="fas fa-flag me-2"></i>Estado</th>
+                                </tr>
+                            </thead>
                             <tbody id="transactions-table-body">
                                 {% for tx in transactions %}
                                     {% include 'exchange/partials/worksheet_transaction_row.html' %}
                                 {% empty %}
-                                    <tr id="no-transactions-row"><td colspan="6" class="text-center py-4">Aún no hay operaciones en esta hoja.</td></tr>
+                                    <tr id="no-transactions-row">
+                                        <td colspan="6" class="text-center py-5">
+                                            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                                            <p class="text-muted mb-0">Aún no hay operaciones en esta hoja</p>
+                                            <small class="text-muted">Las nuevas operaciones aparecerán aquí</small>
+                                        </td>
+                                    </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -109,10 +281,10 @@ document.addEventListener("DOMContentLoaded", function() {
     // SECCIÓN 1: LÓGICA DEL FORMULARIO DE CÁLCULO DINÁMICO
     // ==========================================================
     const operationSelect = document.getElementById('id_operation_type');
-    const amountInInput = document.getElementById('id_amount_in');
+    const amountPrimaryInput = document.getElementById('id_amount_primary');
     const rateFeeInput = document.getElementById('id_rate_or_fee');
     
-    const amountInLabel = document.querySelector('label[for="id_amount_in"]');
+    const amountPrimaryLabel = document.querySelector('label[for="id_amount_primary"]');
     const rateFeeLabel = document.querySelector('label[for="id_rate_or_fee"]');
     const resultTitle = document.getElementById('result-title');
     const resultDisplay = document.getElementById('result-display');
@@ -122,9 +294,9 @@ document.addEventListener("DOMContentLoaded", function() {
         if (!operationSelect) return;
 
         const operation = operationSelect.value;
-        const amountIn = parseFloat(amountInInput.value) || 0;
+        const amountPrimary = parseFloat(amountPrimaryInput.value) || 0;
         const rateFee = parseFloat(rateFeeInput.value) || 0;
-        let amountOut = 0;
+        let resultAmount = 0;
         let resultText = '--';
 
         // Ocultar siempre el display de ganancia, ya que se calcula al cierre
@@ -132,39 +304,60 @@ document.addEventListener("DOMContentLoaded", function() {
 
         const operationConfigs = {
             'USDT_FOR_CASH': {
-                inLabel: "Doy (USDT)", rateLabel: "Comisión/Prima (%)", outTitle: "Recibo en Efectivo (USD)",
-                calculate: () => { amountOut = amountIn + (amountIn * (rateFee / 100)); resultText = `$${amountOut.toFixed(2)}`; }
+                primaryLabel: "Doy (USDT)", rateLabel: "Comisión/Prima (%)", resultTitle: "Recibo en Efectivo (USD)",
+                calculate: () => { 
+                    const commission = amountPrimary * (rateFee / 100);
+                    resultAmount = amountPrimary + commission; 
+                    resultText = `$${resultAmount.toFixed(2)}`; 
+                }
             },
             'CASH_FOR_USDT': {
-                inLabel: "Doy (Efectivo USD)", rateLabel: "Comisión/Prima (%)", outTitle: "Recibo en USDT",
-                calculate: () => { amountOut = amountIn + (amountIn * (rateFee / 100)); resultText = `${amountOut.toFixed(2)} USDT`; }
+                primaryLabel: "Doy (Efectivo USD)", rateLabel: "Comisión/Prima (%)", resultTitle: "Recibo en USDT",
+                calculate: () => { 
+                    const commission = amountPrimary * (rateFee / 100);
+                    resultAmount = amountPrimary + commission; 
+                    resultText = `${resultAmount.toFixed(2)} USDT`; 
+                }
             },
             'ZELLE_FOR_CASH': {
-                inLabel: "Doy (Zelle)", rateLabel: "Comisión/Prima (%)", outTitle: "Recibo en Efectivo (USD)",
-                calculate: () => { amountOut = amountIn + (amountIn * (rateFee / 100)); resultText = `$${amountOut.toFixed(2)}`; }
+                primaryLabel: "Doy (Zelle)", rateLabel: "Comisión/Prima (%)", resultTitle: "Recibo en Efectivo (USD)",
+                calculate: () => { 
+                    const commission = amountPrimary * (rateFee / 100);
+                    resultAmount = amountPrimary + commission; 
+                    resultText = `$${resultAmount.toFixed(2)}`; 
+                }
             },
             'USDT_FOR_BS': {
-                inLabel: "Doy (USDT)", rateLabel: "Tasa (BS por USDT)", outTitle: "Recibo en Bolívares",
-                calculate: () => { amountOut = amountIn * rateFee; resultText = `${amountOut.toLocaleString('es-VE', {minimumFractionDigits: 2})} Bs.`; }
+                primaryLabel: "Doy (USDT)", rateLabel: "Tasa (BS por USDT)", resultTitle: "Recibo en Bolívares",
+                calculate: () => { 
+                    resultAmount = amountPrimary * rateFee; 
+                    resultText = `${resultAmount.toLocaleString('es-VE', {minimumFractionDigits: 2})} Bs.`; 
+                }
             },
             'SELL_USD_FOR_BS': {
-                inLabel: "Vendo (USD Efectivo)", rateLabel: "Tasa de Venta (BS por USD)", outTitle: "Recibo en Bolívares",
-                calculate: () => { amountOut = amountIn * rateFee; resultText = `${amountOut.toLocaleString('es-VE', {minimumFractionDigits: 2})} Bs.`; }
+                primaryLabel: "Vendo (USD Efectivo)", rateLabel: "Tasa de Venta (BS por USD)", resultTitle: "Recibo en Bolívares",
+                calculate: () => { 
+                    resultAmount = amountPrimary * rateFee; 
+                    resultText = `${resultAmount.toLocaleString('es-VE', {minimumFractionDigits: 2})} Bs.`; 
+                }
             },
             'BUY_USD_FOR_BS': {
-                inLabel: "Compro (USD Efectivo)", rateLabel: "Tasa de Compra (BS por USD)", outTitle: "Entrego en Bolívares",
-                calculate: () => { amountOut = amountIn * rateFee; resultText = `${amountOut.toLocaleString('es-VE', {minimumFractionDigits: 2})} Bs.`; }
+                primaryLabel: "Compro (USD Efectivo)", rateLabel: "Tasa de Compra (BS por USD)", resultTitle: "Entrego en Bolívares",
+                calculate: () => { 
+                    resultAmount = amountPrimary * rateFee; 
+                    resultText = `${resultAmount.toLocaleString('es-VE', {minimumFractionDigits: 2})} Bs.`; 
+                }
             }
         };
 
         const config = operationConfigs[operation];
         if (config) {
-            amountInLabel.textContent = config.inLabel;
+            amountPrimaryLabel.textContent = config.primaryLabel;
             rateFeeLabel.textContent = config.rateLabel;
-            resultTitle.textContent = config.outTitle;
+            resultTitle.textContent = config.resultTitle;
             config.calculate();
         } else {
-            amountInLabel.textContent = "Monto de Entrada";
+            amountPrimaryLabel.textContent = "Monto Principal";
             rateFeeLabel.textContent = "Tasa o Porcentaje";
             resultTitle.textContent = "Resultado";
         }
@@ -174,18 +367,69 @@ document.addEventListener("DOMContentLoaded", function() {
 
     if (operationSelect) {
         operationSelect.addEventListener('change', updateFormUI);
-        amountInInput.addEventListener('keyup', updateFormUI);
+        amountPrimaryInput.addEventListener('keyup', updateFormUI);
         rateFeeInput.addEventListener('keyup', updateFormUI);
         updateFormUI(); // Llamada inicial
     }
 
     // ==========================================================
-    // SECCIÓN 2: ENVÍO AJAX PARA AÑADIR OPERACIÓN
+    // SECCIÓN 2: ACTUALIZAR ESTADÍSTICAS EN TIEMPO REAL
+    // ==========================================================
+    function updateStats() {
+        const rows = document.querySelectorAll('.transaction-row');
+        let totalOps = rows.length;
+        let completedOps = 0;
+        let pendingOps = 0;
+        let totalVolume = 0;
+        
+        rows.forEach(row => {
+            const statusCell = row.querySelector('.status-cell');
+            const status = statusCell.dataset.currentStatus;
+            
+            if (status === 'completed') completedOps++;
+            if (status === 'pending') pendingOps++;
+            
+            // Calcular volumen total solo para operaciones con USD como monto principal
+            const operationText = row.cells[1].textContent.trim();
+            const amountText = row.cells[2].textContent.trim();
+            const amount = parseFloat(amountText.replace(/[^\d.-]/g, '')) || 0;
+            
+            // Solo sumar operaciones donde USD es realmente el monto principal
+            // USDT_FOR_CASH: se da USDT, recibe USD (USD no es principal)
+            // CASH_FOR_USDT: se da USD, recibe USDT (USD es principal)
+            // ZELLE_FOR_CASH: se da Zelle, recibe USD (USD no es principal)
+            // Las operaciones USD por BS no se incluyen porque operan en BS principalmente
+            if (operationText.includes('Efectivo USD por USDT') || 
+                operationText.includes('Vendo USD') ||
+                operationText.includes('Compro USD')) {
+                totalVolume += amount;
+            }
+        });
+        
+        // Actualizar los elementos de estadísticas
+        document.getElementById('total-operations').textContent = totalOps;
+        document.getElementById('completed-operations').textContent = completedOps;
+        document.getElementById('pending-operations').textContent = pendingOps;
+        document.getElementById('total-volume').textContent = `$${totalVolume.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    }
+    
+    // Actualizar estadísticas al cargar la página
+    updateStats();
+
+    // ==========================================================
+    // SECCIÓN 3: ENVÍO AJAX PARA AÑADIR OPERACIÓN
     // ==========================================================
     const addForm = document.getElementById('add-transaction-form');
     if (addForm) {
         addForm.addEventListener('submit', function(e) {
             e.preventDefault();
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            
+            // Mostrar loading
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Añadiendo...';
+            submitBtn.disabled = true;
+            
             const url = this.dataset.url;
             const formData = new FormData(this);
             fetch(url, { method: 'POST', body: formData, headers: {'X-CSRFToken': formData.get('csrfmiddlewaretoken')} })
@@ -198,16 +442,33 @@ document.addEventListener("DOMContentLoaded", function() {
                     if (noTxRow) noTxRow.remove();
                     addForm.reset();
                     updateFormUI();
+                    updateStats(); // Actualizar estadísticas
+                    
+                    // Mostrar mensaje de éxito
+                    const newRow = tableBody.firstElementChild;
+                    newRow.style.backgroundColor = '#d4edda';
+                    setTimeout(() => {
+                        newRow.style.backgroundColor = '';
+                    }, 2000);
                 } else {
                     console.error('Error en el formulario:', data.errors);
                     alert('Hubo un error al guardar la operación. Revisa los datos.');
                 }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error de conexión. Inténtalo de nuevo.');
+            })
+            .finally(() => {
+                // Restaurar botón
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
             });
         });
     }
 
     // ==========================================================
-    // SECCIÓN 3: LÓGICA INTERACTIVA PARA CAMBIAR ESTADO
+    // SECCIÓN 4: LÓGICA INTERACTIVA PARA CAMBIAR ESTADO
     // ==========================================================
     const tableBody = document.getElementById('transactions-table-body');
     if(tableBody) {
@@ -239,6 +500,7 @@ document.addEventListener("DOMContentLoaded", function() {
                         badge.className = `badge ${data.new_status_class} status-badge`;
                         cell.dataset.currentStatus = newStatus;
                         showBadge(cell);
+                        updateStats(); // Actualizar estadísticas después del cambio
                     } else {
                         alert('Error al cambiar el estado: ' + (data.error || ''));
                         select.value = cell.dataset.currentStatus;
